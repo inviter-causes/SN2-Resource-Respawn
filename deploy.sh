@@ -11,10 +11,8 @@ VORTEX="/c/Users/Bon/AppData/Roaming/Vortex/subnautica2/mods/ResourceRespawn/Res
 for DST in "$GAME" "$VORTEX"; do
     if [ -d "$DST" ]; then
         mkdir -p "$DST/Scripts"
-        cp -f "$REPO_MOD/Scripts/main.lua"   "$DST/Scripts/main.lua"
-        cp -f "$REPO_MOD/Scripts/config.lua" "$DST/Scripts/config.lua"
-        cp -f "$REPO_MOD/Scripts/lang.lua"   "$DST/Scripts/lang.lua"
-        cp -f "$REPO_MOD/enabled.txt"        "$DST/enabled.txt"
+        cp -f "$REPO_MOD/Scripts/"*.lua "$DST/Scripts/"   # main, config, lang (+ optional lang_local)
+        cp -f "$REPO_MOD/enabled.txt"   "$DST/enabled.txt"
         echo "deployed -> $DST"
     else
         echo "skip (not found) -> $DST"

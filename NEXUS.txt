@@ -1,0 +1,79 @@
+[center][size=6][color=#FF4D6D][b]♥ Resource Respawn ♥[/b][/color][/size][/center]
+
+[center][color=#FF4D6D][b]Mined a spot dry? Don't cry — give it a little love and it comes back. ♥[/b][/color][/center]
+
+[center][color=#FF4D6D][b]⚠ Heads-up: only small loose pickups respawn instantly. MOST resources (medium & large nodes you break with a Sonic Resonator) come back only after you Save, reload, and move away from the area. See "What respawns when" below.[/b][/color][/center]
+
+In Subnautica 2, loose pickups and wildlife slowly respawn on their own, but mined ore nodes are largely finite — the game wants you to farm those with a Metal Farm. [b]Resource Respawn[/b] gives your gathered resources a second life on a cooldown [b]you[/b] control, so your favourite spots never truly run dry. ♥
+
+Everything is configurable [b]in-game[/b] — no file editing needed — if you have Mod Settings installed.
+
+[size=4][color=#FF4D6D][b]♥ How it works[/b][/color][/size]
+[list]
+[*][b]Loose pickups & water slugs[/b] — the game brings these back slowly; the mod brings them back [b]live, on your timer[/b] (as fast as 5 seconds), and lets you pick your favourites.
+[*][b]Mined deposits[/b] — the game treats these as finite (Metal Farm territory). The mod resets a gathered node so it can return after the area reloads (see Known Issues) — something vanilla doesn't do.
+[*][b]Non-destructive[/b] — it just clears a resource's "gathered" flag and gives it a fresh ID; no save edits, no hard feelings. Uninstall and everything's vanilla again. ♥
+[/list]
+
+[size=4][color=#FF4D6D][b]♥ Features[/b][/color][/size]
+[list]
+[*]Gathered resources respawn after a configurable cooldown
+[*]One global respawn-time slider (5s–60min) for every resource
+[*]Per-resource on/off toggles: Titanium, Copper, Quartz, Salt, Water Slug, Lead, Silver, Sulfur, Gold, Lithium, Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture (normally finite — this mod lets it respawn)
+[*]Water slugs and loose pickups respawn live; mined deposits reset too (see Known Issues)
+[*]Auto-detected language (English included; built so other languages are easy to add)
+[/list]
+
+[size=4][color=#FF4D6D][b]♥ What respawns when (from testing)[/b][/color][/size]
+[list]
+[*][b]Instantly / live[/b] — only the [b]small, loose, hand-picked pickups[/b] (the little chunks you grab by hand, e.g. small Titanium, Copper, Quartz) and [b]Water Slug[/b]. These come back on your timer.
+[*][b]After Save + reload + moving far away[/b] — [b]every medium and large node/deposit[/b] (the ones you break with a Sonic Resonator), for all resources. They reset, but only show up again once the area re-streams from a reload (and after your set time has passed).
+[*][b]Not supported[/b] — Troilite. Its Mineralized Clinker is a static object the mod cannot reset.
+[/list]
+[i]Behaviour can vary by resource and spot — this reflects hands-on testing, not a guarantee for every node.[/i]
+
+[size=4][color=#FF4D6D][b]♥ Requirements[/b][/color][/size]
+[list]
+[*][url=https://github.com/UE4SS-RE/RE-UE4SS]UE4SS[/url] for Subnautica 2
+[*][url=https://www.nexusmods.com/subnautica2/mods/20]Mod Settings for Subnautica 2[/url] — optional but recommended (adds the in-game config menu)
+[/list]
+
+[size=4][color=#FF4D6D][b]♥ Installation[/b][/color][/size]
+[list=1]
+[*]Install UE4SS for Subnautica 2.
+[*]Install this mod with Vortex, or extract the [b]ResourceRespawn[/b] folder into [i]...\Subnautica2\Binaries\Win64\ue4ss\Mods\[/i].
+[*](Optional) Install Mod Settings to configure it in-game.
+[/list]
+
+[size=4][color=#FF4D6D][b]♥ Configuration[/b][/color][/size]
+With Mod Settings installed, open [b]Settings → Mods → Resource Respawn[/b] in-game. Toggle each resource and drag the single respawn-time slider; changes apply within a few seconds. Without Mod Settings, edit [i]ResourceRespawn/Scripts/config.lua[/i].
+
+[size=4][color=#FF4D6D][b]♥ Known Issues[/b][/color][/size]
+[list]
+[*][b]Mined deposits / outcrops[/b] (medium & large ore nodes) are reset, but the game holds their "gathered" state in memory during a session, so they only reappear after you [b]Save, reload, and move far from the area[/b] — and only once your set respawn time has fully passed. If a node isn't back, give it the full time first, then reload. Water slugs and loose pickups respawn live without this.
+[*][b]Troilite[/b] is shown in the menu as [i](unsupported)[/i]. Its Mineralized Clinker is a static object this mod cannot reset, so toggling it does nothing — it's listed only for awareness.
+[/list]
+
+[size=4][color=#FF4D6D][b]♥ ปัญหาที่ทราบแล้ว (Known Issues — ภาษาไทย)[/b][/color][/size]
+[list]
+[*][b]แร่ deposit / outcrop[/b] (ก้อนกลางและใหญ่) ถูกรีเซ็ตแล้ว แต่เกมยังจำสถานะ "เก็บไปแล้ว" ไว้ในหน่วยความจำระหว่างเล่น จะกลับมาก็ต่อเมื่อ [b]Save แล้วโหลดใหม่ และเดินออกไปไกลจากบริเวณนั้น[/b] และต้องครบเวลาที่ตั้งไว้ก่อนด้วย ถ้ายังไม่กลับมา ให้รอจนครบเวลาก่อนแล้วค่อยโหลดใหม่ ส่วน water slug และของชิ้นเล็กเกิดใหม่ได้สด ๆ
+[*][b]Troilite[/b] ขึ้นในเมนูเป็น [i](ยังไม่รองรับ)[/i] เพราะ Mineralized Clinker เป็นวัตถุ static ที่มอดรีเซ็ตไม่ได้ กดแล้วไม่มีผล ใส่ไว้ให้รู้เฉย ๆ
+[/list]
+
+[size=4][color=#FF4D6D][b]♥ Credits & thanks[/b][/color][/size]
+This little mod stands on the shoulders of the Subnautica 2 modding community:
+[list]
+[*][url=https://www.nexusmods.com/subnautica2/mods/269]SlugRespawn[/url] by Casper — the original water-slug respawn mod that inspired this one; Resource Respawn grows its idea to every gatherable resource.
+[*][url=https://www.nexusmods.com/subnautica2/mods/20]Mod Settings for Subnautica 2[/url] by JustChaldea — the in-game settings framework this mod registers its menu with.
+[*][url=https://www.nexusmods.com/subnautica2/mods/128]QuickStack[/url] — reference for the localization approach (detecting the game language and serving per-language text).
+[/list]
+Big thanks to these authors. ♥
+
+[size=4][color=#FF4D6D][b]♥ Source[/b][/color][/size]
+Open source on GitHub: [url=https://github.com/inviter-causes/SN2-Resource-Respawn][color=#FF4D6D]github.com/inviter-causes/SN2-Resource-Respawn[/color][/url]. Contributions and translations are welcome.
+
+[size=4][color=#FF4D6D][b]♥ Open to contributions — help wanted[/b][/color][/size]
+The one thing I couldn't crack is making [b]mined deposits respawn live[/b] (without a Save + reload). The game keeps their "gathered" state in memory and re-hides them, and digging deeper risks crashes. If you know Unreal / UE4SS and find a clean way to do it, [b]please share it[/b] — open a PR or drop a comment. I'd happily fold it in and use it myself. The code is fully open for anyone to build on. ♥
+
+[size=4][color=#FF4D6D][b]♥ How this mod was made[/b][/color][/size]
+This mod was developed with the help of [b][color=#FF4D6D]Claude AI[/color][/b] (Anthropic) — generalizing the SlugRespawn approach, building the in-game Mod Settings integration and localization, and identifying the game's internal resource names. The full source is linked above if you'd like to see how it works or build on it.

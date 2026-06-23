@@ -5,18 +5,10 @@ local function log(s) print("[ResourceRespawn] " .. s .. "\n") end
 
 math.randomseed(os.time())
 
--- ===== Rarity groups (default respawn time per group) =====
-local GROUPS = {
-    { key = "Common",  defaultSec = 300  },  -- 5 min
-    { key = "Medium",  defaultSec = 600  },  -- 10 min
-    { key = "Rare",    defaultSec = 900  },  -- 15 min
-    { key = "Special", defaultSec = 1800 },  -- 30 min (finite specials)
-}
-
 -- ===== Resource map =====
 -- key   = menu/config id (also the localization key in lang.lua)
 -- sub   = substring matched against the actor class name (case-insensitive)
--- group = rarity group (references GROUPS.key)
+-- group = rarity label, kept only for ordering/reference (not used for timing)
 -- supported = false -> listed in the menu for awareness but never acts
 local RESOURCES = {
     -- Common
@@ -72,15 +64,6 @@ local function loadLuaTable(path)
     return nil
 end
 
--- Collect the resources belonging to a group (in RESOURCES order)
-local function membersOf(groupKey)
-    local out = {}
-    for _, r in ipairs(RESOURCES) do
-        if r.group == groupKey then out[#out + 1] = r end
-    end
-    return out
-end
-
 -- Write the menu manifest for SN2ModSettings. Called at startup and again when
 -- the game language changes (via lang.onRefresh) so the menu re-localizes.
 local function writeRegistration()
@@ -99,35 +82,27 @@ local function writeRegistration()
             lang.s("enableTitle"), lang.s("enableDesc")),
     }
 
-    for _, g in ipairs(GROUPS) do
-        local members = membersOf(g.key)
-        if #members > 0 then
-            local gname = lang.group(g.key)
-            -- Group time slider (also acts as the group header)
+    -- One global respawn-time slider for every resource.
+    parts[#parts + 1] = string.format(
+        '        { key="RespawnSeconds", title=%q, description=%q,'
+        .. ' type="slider", default=300, min=5, max=3600, step=5,'
+        .. ' format="integer", enabled_by="Enabled" },\n',
+        lang.s("timeTitle"), lang.s("timeDesc"))
+
+    -- Per-resource toggles (flat list, in RESOURCES order).
+    for _, r in ipairs(RESOURCES) do
+        local title = SUB_PREFIX .. lang.res(r.key, "title")
+        local desc  = lang.res(r.key, "desc")
+        if r.supported == false then
             parts[#parts + 1] = string.format(
-                '        { key="Time_%s", title=%q, description=%q,'
-                .. ' type="slider", default=%d, min=30, max=3600, step=30,'
-                .. ' format="integer", enabled_by="Enabled" },\n',
-                g.key,
-                string.format(lang.s("groupTimeTitle"), gname),
-                string.format(lang.s("groupTimeDesc"), string.lower(gname)),
-                g.defaultSec)
-            -- Per-resource toggles (indented to look like sub-items)
-            for _, r in ipairs(members) do
-                local title = SUB_PREFIX .. lang.res(r.key, "title")
-                local desc  = lang.res(r.key, "desc")
-                if r.supported == false then
-                    parts[#parts + 1] = string.format(
-                        '        { key=%q, title=%q, description=%q,'
-                        .. ' type="toggle", default=false, enabled_by="Enabled" },\n',
-                        r.key, title .. lang.s("unsupportedSuffix"), lang.s("unsupportedNote") .. desc)
-                else
-                    parts[#parts + 1] = string.format(
-                        '        { key=%q, title=%q, description=%q,'
-                        .. ' type="toggle", default=true, enabled_by="Enabled" },\n',
-                        r.key, title, desc)
-                end
-            end
+                '        { key=%q, title=%q, description=%q,'
+                .. ' type="toggle", default=false, enabled_by="Enabled" },\n',
+                r.key, title .. lang.s("unsupportedSuffix"), lang.s("unsupportedNote") .. desc)
+        else
+            parts[#parts + 1] = string.format(
+                '        { key=%q, title=%q, description=%q,'
+                .. ' type="toggle", default=true, enabled_by="Enabled" },\n',
+                r.key, title, desc)
         end
     end
 
@@ -160,25 +135,21 @@ local function currentSettings()
 
     local enabled = pick("Enabled", true)
 
-    -- Respawn time per group
-    local groupSec = {}
-    for _, g in ipairs(GROUPS) do
-        local def = (cfg.GroupSeconds and cfg.GroupSeconds[g.key]) or g.defaultSec
-        local secs = tonumber(pick("Time_" .. g.key, def)) or def
-        if secs < 1 then secs = 1 end
-        groupSec[g.key] = secs
-    end
+    -- Single global respawn time for all resources.
+    local def = cfg.RespawnSeconds or 300
+    local seconds = tonumber(pick("RespawnSeconds", def)) or def
+    if seconds < 1 then seconds = 1 end
 
-    -- Build the list of enabled resources, each carrying its group's respawn time.
+    -- Build the list of enabled resources, all sharing the global respawn time.
     -- Unsupported entries (supported == false) are listed in the menu only and never act.
     local active = {}
     if enabled then
         for _, r in ipairs(RESOURCES) do
             if r.supported ~= false then
-                local def = (cfg.Resources and cfg.Resources[r.key])
-                if def == nil then def = true end
-                if pick(r.key, def) then
-                    active[#active + 1] = { sub = r.sub, seconds = groupSec[r.group] }
+                local rdef = (cfg.Resources and cfg.Resources[r.key])
+                if rdef == nil then rdef = true end
+                if pick(r.key, rdef) then
+                    active[#active + 1] = { sub = r.sub, seconds = seconds }
                 end
             end
         end
@@ -192,6 +163,16 @@ end
 -- ===== Respawn logic =====
 local picked = {}
 local seenNames = {}
+local staticDone = {}  -- addresses of mined static nodes already reset (avoid live re-fighting)
+
+-- Mined outcrops keep their "gathered" state authoritatively: resetting them live
+-- makes the game re-hide them within a scan or two (flicker). For these we reset
+-- once and stop; they reappear on the next area reload. Loose pickups don't.
+local function isStaticNode(name)
+    local low = name:lower()
+    return low:find("resourcedeposit", 1, true) ~= nil
+        or low:find("resourcenode", 1, true) ~= nil
+end
 
 local function className(a)
     local n = ""
@@ -218,6 +199,9 @@ local function newGuid(a)
     end)
 end
 
+-- Reset a gathered resource so the game treats it as fresh. Loose pickups and
+-- water slugs re-render live; mined static nodes/deposits come back the next time
+-- the area reloads (sleep / save-reload / re-stream) thanks to the new ResourceId.
 local function bringBack(a)
     newGuid(a)
     pcall(function() a.bHasBeenGathered = false end)
@@ -307,18 +291,24 @@ local function tick()
             local cooldown = matchSeconds(name, s.active)
             if cooldown then
                 local addr = tostring(a:GetAddress())
-                local g
-                pcall(function() g = a.bHasBeenGathered end)
-                if g == true then
-                    local t = picked[addr]
-                    if not t then
-                        picked[addr] = now
-                    elseif now - t >= cooldown then
-                        bringBack(a)
+                local staticNode = isStaticNode(name)
+                -- A static node we've already reset: leave it alone so we don't
+                -- fight the game's re-gathering (which causes flicker).
+                if not (staticNode and staticDone[addr]) then
+                    local g
+                    pcall(function() g = a.bHasBeenGathered end)
+                    if g == true then
+                        local t = picked[addr]
+                        if not t then
+                            picked[addr] = now
+                        elseif now - t >= cooldown then
+                            bringBack(a)
+                            picked[addr] = nil
+                            if staticNode then staticDone[addr] = true end
+                        end
+                    elseif g == false then
                         picked[addr] = nil
                     end
-                elseif g == false then
-                    picked[addr] = nil
                 end
             end
         end

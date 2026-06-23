@@ -8,3 +8,6 @@ desktop.ini
 
 # Vortex marker files (if ever copied in)
 __folder_managed_by_vortex
+
+# Personal locale override (keeps the public mod English; not for distribution)
+ResourceRespawn/Scripts/lang_local.lua

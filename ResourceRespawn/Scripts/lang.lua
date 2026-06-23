@@ -11,23 +11,15 @@ local strings = {}
 strings.en = {
     -- Mod manifest
     display        = "Resource Respawn",
-    modDescription = "Gathered resources respawn after a cooldown, grouped by rarity.",
+    modDescription = "Gathered resources respawn after a cooldown.",
 
     -- Master switch
     enableTitle = "Enable mod",
     enableDesc  = "Master switch. When off, nothing respawns.",
 
-    -- Group time slider (%s = group name)
-    groupTimeTitle = "[%s] Respawn time (sec)",
-    groupTimeDesc  = "Cooldown for %s resources.",
-
-    -- Group display names
-    groups = {
-        Common  = "Common",
-        Medium  = "Medium",
-        Rare    = "Rare",
-        Special = "Special",
-    },
+    -- Global respawn-time slider
+    timeTitle = "Respawn time (sec)",
+    timeDesc  = "Cooldown for all resources. Only SMALL loose pickups (and water slugs) come back instantly. Every medium/large node you break with a Sonic Resonator needs a Save + reload + moving far away (after this time) — not every item respawns on the spot. If one isn't back, check your set time first.",
 
     -- Debug toggle
     debugTitle = "Debug: log resource names",
@@ -39,29 +31,36 @@ strings.en = {
 
     -- Per-resource title + description
     resources = {
-        Titanium       = { title = "Titanium",        desc = "Most-used base resource: bases, tools, vehicles, Titanium/Plasteel ingots. Default: 300s." },
-        Copper         = { title = "Copper",          desc = "Conductive metal for batteries, wiring and basic electronics. Often on cave walls. Default: 300s." },
-        Quartz         = { title = "Quartz",          desc = "Silica crystal for Glass and electronics. Common around coral domes in the Shallows. Default: 300s." },
-        Salt           = { title = "Salt",            desc = "Used for Glass, food, Isotonic Water and Power Cells. Found across the seabed. Default: 300s." },
-        WaterSlug      = { title = "Water Slug",      desc = "Passive creature; makes drinking water in the Fabricator. Common near the Lifepod. Default: 300s." },
-        Lead           = { title = "Lead",            desc = "Galena ore; radiation shielding. Sonic Resonator and Germanium ingot. Default: 600s." },
-        Silver         = { title = "Silver",          desc = "Air tanks, wiring kits and system chips. Gates much early-mid electronics. Default: 600s." },
-        Sulfur         = { title = "Sulfur",          desc = "Strong Acid, Repair Tool, advanced wiring. Volcanic / thermal-vent zones. Default: 600s." },
-        Gold           = { title = "Gold",            desc = "Thermal Plant and advanced wiring. Hot zones (needs heat resistance); often near Sulfur. Default: 600s." },
-        Lithium        = { title = "Lithium",         desc = "Smelts into Plasteel ingots for depth modules. Needed to dive past 300m. Default: 600s." },
-        Atacamite      = { title = "Atacamite",       desc = "Green crystal for Mangalloy ingot. Harvested with a Sonic Resonator. Default: 900s." },
-        Celestine      = { title = "Celestine",       desc = "Source of Strontium; used for the Tadpole Depth Module Mk.1. Default: 900s." },
-        ConduitCrystal = { title = "Conduit Crystal", desc = "Bioscanner and Advanced/Entangled Battery. Found below the Karakorum Power Plant. Default: 900s." },
-        CreatureEnamel = { title = "Creature Enamel", desc = "Enameled Glass. Break Enamel Husks inside the Needler nest. Default: 900s." },
-        AxumCulture    = { title = "Axum Bacterial Culture", desc = "Builds the Metal Farm. Rarest resource: only ~5 exist and never respawn (this mod overrides that). Default: 1800s." },
+        Titanium       = { title = "Titanium",        desc = "Most-used base resource: bases, tools, vehicles, Titanium/Plasteel ingots." },
+        Copper         = { title = "Copper",          desc = "Conductive metal for batteries, wiring and basic electronics. Often on cave walls." },
+        Quartz         = { title = "Quartz",          desc = "Silica crystal for Glass and electronics. Common around coral domes in the Shallows." },
+        Salt           = { title = "Salt",            desc = "Used for Glass, food, Isotonic Water and Power Cells. Found across the seabed." },
+        WaterSlug      = { title = "Water Slug",      desc = "Passive creature; makes drinking water in the Fabricator. Common near the Lifepod." },
+        Lead           = { title = "Lead",            desc = "Galena ore; radiation shielding. Sonic Resonator and Germanium ingot." },
+        Silver         = { title = "Silver",          desc = "Air tanks, wiring kits and system chips. Gates much early-mid electronics." },
+        Sulfur         = { title = "Sulfur",          desc = "Strong Acid, Repair Tool, advanced wiring. Volcanic / thermal-vent zones." },
+        Gold           = { title = "Gold",            desc = "Thermal Plant and advanced wiring. Hot zones (needs heat resistance); often near Sulfur." },
+        Lithium        = { title = "Lithium",         desc = "Smelts into Plasteel ingots for depth modules. Needed to dive past 300m." },
+        Atacamite      = { title = "Atacamite",       desc = "Green crystal for Mangalloy ingot. Harvested with a Sonic Resonator." },
+        Celestine      = { title = "Celestine",       desc = "Source of Strontium; used for the Tadpole Depth Module Mk.1." },
+        ConduitCrystal = { title = "Conduit Crystal", desc = "Bioscanner and Advanced/Entangled Battery. Found below the Karakorum Power Plant." },
+        CreatureEnamel = { title = "Creature Enamel", desc = "Enameled Glass. Break Enamel Husks inside the Needler nest." },
+        AxumCulture    = { title = "Axum Bacterial Culture", desc = "Builds the Metal Farm. Rarest resource: only ~5 exist and never respawn (this mod overrides that)." },
         Troilite       = { title = "Troilite",        desc = "Used for Mangalloy ingot and Entangled Power Cell; found at Karakorum Metal Farms and farmable via a Metal Farm." },
     },
 }
 
--- Thai is served through the game's French (fr) locale slot (the SN2 Thai mod
--- hijacks fr-FR). Kept OUT of the base build so real French users still get
--- French. To make a personal Thai version, add a translated `strings.th` and:
---   strings.fr = strings.th
+-- Optional personal overrides: if Scripts/lang_local.lua exists, it may add
+-- languages or aliases (e.g. Thai served via the game's French slot, which the
+-- SN2 Thai mods hijack) WITHOUT touching this public file. It returns a
+-- function(strings) that mutates the table. A missing file is fine — the base
+-- mod stays English. Keep lang_local.lua out of the public repo (git-ignored).
+do
+    local ok, override = pcall(require, "lang_local")
+    if ok and type(override) == "function" then
+        pcall(override, strings)
+    end
+end
 
 -----------------------------------------------------------
 -- Language detection

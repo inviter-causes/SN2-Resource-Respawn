@@ -5,17 +5,13 @@
 --
 -- If SN2ModSettings is absent -> the mod reads its values from here.
 return {
-    CheckIntervalMs  = 30000,    -- how often to scan (ms)
+    CheckIntervalMs  = 5000,     -- how often to scan (ms); 5000 so the 5s minimum respawn time is responsive
     DebugListNames   = false,    -- true = print every resource class name to the log
     DeepScan         = false,    -- diagnostic: log the nearest actors to the player (off; only for finding new resource classes)
 
-    -- Respawn time (seconds) per rarity group
-    GroupSeconds = {
-        Common  = 300,    -- 5 min
-        Medium  = 600,    -- 10 min
-        Rare    = 900,    -- 15 min
-        Special = 1800,   -- 30 min (finite specials such as Axum)
-    },
+    -- Global respawn time (seconds) applied to every resource.
+    -- Overridden by the in-game slider (min 5, step 5).
+    RespawnSeconds = 300,
 
     -- Enable/disable each resource (true = respawn it)
     Resources = {
