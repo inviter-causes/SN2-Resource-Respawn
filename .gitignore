@@ -1,0 +1,10 @@
+# Build / packaging output
+*.zip
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Vortex marker files (if ever copied in)
+__folder_managed_by_vortex
