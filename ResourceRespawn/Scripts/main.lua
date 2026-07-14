@@ -1,7 +1,16 @@
-local cfg  = require("config")
-local lang = require("lang")
+local cfg       = require("config")
+local lang      = require("lang")
+local UEHelpers = require("UEHelpers")
 
 local function log(s) print("[ResourceRespawn] " .. s .. "\n") end
+
+-- Diagnostic module. Loaded defensively: it pulls in UEHelpers, and a failure there must
+-- never take the whole mod down with it.
+local probe = nil
+if cfg.Probe then
+    local ok, m = pcall(require, "probe")
+    if ok then probe = m else log("probe failed to load (" .. tostring(m) .. ") — continuing without it") end
+end
 
 math.randomseed(os.time())
 
@@ -74,7 +83,7 @@ local function writeRegistration()
         "return {\n",
         '    name = "ResourceRespawn",\n',
         string.format("    display = %q,\n", lang.s("display")),
-        '    version = "1.0.0",\n',
+        '    version = "2.0.0",\n',
         string.format("    description = %q,\n", lang.s("modDescription")),
         "    settings = {\n",
         string.format(
@@ -157,27 +166,67 @@ local function currentSettings()
 
     local debug = pick("DebugListNames", cfg.DebugListNames)
 
-    return { enabled = enabled, active = active, debug = debug }
+    return { enabled = enabled, active = active, debug = debug,
+             seconds = seconds, fromMenu = saved ~= nil }
 end
 
 -- ===== Respawn logic =====
-local picked = {}
-local seenNames = {}
-local staticDone = {}  -- addresses of mined static nodes already reset (avoid live re-fighting)
+--
+-- Two hard-won facts drive this design:
+--
+--  1. Harvesting a deposit DESTROYS the actor. It exposes no reset/respawn function, and
+--     neither does anything else in the world-population module. So we do not revive the
+--     node: we remember what stood there and SPAWN A FRESH ONE once the cooldown is up.
+--
+--  2. We must never hold on to an actor between scans. When the player swims away the
+--     area unloads and the engine frees those actors; touching one afterwards is an
+--     access violation that takes the whole game down, and no pcall can catch it.
+--     (It did — that was the crash.)
+--
+-- So every actor we touch comes from the CURRENT scan, and nothing we remember between
+-- scans contains an actor: only a class path and a transform.
+--
+-- A pleasant consequence: we detect a harvest by noticing that the node which stood at a
+-- spot is no longer there, rather than by reading a flag off it. That also fixes nodes we
+-- spawned ourselves — the game never sets bHasBeenGathered on those, because they are not
+-- registered with its world-population system.
 
--- Mined outcrops keep their "gathered" state authoritatively: resetting them live
--- makes the game re-hide them within a scan or two (flicker). For these we reset
--- once and stop; they reappear on the next area reload. Loose pickups don't.
+local snapshot = {}   -- key -> transform of the intact node that stood there last scan
+local pending  = {}   -- key -> transform + due time. No actor reference. Safe to keep.
+local watched  = {}   -- key -> transform, for spots we have respawned at while nearby
+local locCache = {}   -- actor address -> position. Nodes never move; this keeps the scan
+                      -- from calling into the engine for actors that are far away.
+local seenNames = {}
+local spawnFailLogged = false
+local ticks = 0
+
+local NEAR  = 15000   -- 150m; you can only harvest what is close by
+local NEAR2 = NEAR * NEAR
+
+-- Deposits/outcrops are the ones the game destroys on harvest.
 local function isStaticNode(name)
     local low = name:lower()
     return low:find("resourcedeposit", 1, true) ~= nil
         or low:find("resourcenode", 1, true) ~= nil
 end
 
+-- Always a string. A half-destroyed actor can hand back nil, and callers do name:lower() —
+-- one nil would throw and take the whole scan down with it.
 local function className(a)
-    local n = ""
+    local n
     pcall(function() n = a:GetClass():GetFName():ToString() end)
+    if type(n) ~= "string" then return "" end
     return n
+end
+
+-- "BlueprintGeneratedClass /Game/.../BP_X.BP_X_C" -> "/Game/.../BP_X.BP_X_C"
+-- We remember the path, not the UClass: a class can be unloaded while its spot is on
+-- cooldown, and we re-resolve it at spawn time instead of holding a stale pointer.
+local function classPath(a)
+    local full
+    pcall(function() full = a:GetClass():GetFullName() end)
+    if type(full) ~= "string" then return nil end
+    return full:match("%s(.+)$") or full
 end
 
 -- Returns the respawn time (seconds) if the name matches an enabled resource, else nil
@@ -187,6 +236,34 @@ local function matchSeconds(name, active)
         if low:find(e.sub, 1, true) ~= nil then return e.seconds end
     end
     return nil
+end
+
+local function nodeState(a)
+    local gathered, destroyed, valid
+    pcall(function() gathered  = a.bHasBeenGathered end)
+    pcall(function() destroyed = a.bActorIsBeingDestroyed end)
+    pcall(function() valid     = a:IsValid() end)
+    return gathered, destroyed, valid
+end
+
+-- A destroyed actor reports its location as (0,0,0). Refuse such a transform outright,
+-- rather than dumping a resource node at the world origin, kilometres out to sea.
+local function plausible(x, y, z)
+    return math.abs(x) > 100 or math.abs(y) > 100 or math.abs(z) > 100
+end
+
+-- One key per physical spot. Rounded to 1m; nodes never sit that close together.
+local function keyOf(cn, x, y, z)
+    return string.format("%s@%d,%d,%d", cn,
+        math.floor(x / 100), math.floor(y / 100), math.floor(z / 100))
+end
+
+local function playerPos()
+    local pc = FindFirstOf("PlayerController")
+    if not pc then return nil end
+    local loc
+    pcall(function() loc = pc.Pawn:K2_GetActorLocation() end)
+    return loc
 end
 
 local function newGuid(a)
@@ -199,15 +276,61 @@ local function newGuid(a)
     end)
 end
 
--- Reset a gathered resource so the game treats it as fresh. Loose pickups and
--- water slugs re-render live; mined static nodes/deposits come back the next time
--- the area reloads (sleep / save-reload / re-stream) thanks to the new ResourceId.
+-- Cheap path for node types the game leaves alive after harvest (loose pickups, slugs):
+-- just clear the flag in place. The actor here always comes from the current scan.
 local function bringBack(a)
     newGuid(a)
     pcall(function() a.bHasBeenGathered = false end)
     pcall(function() a:OnRep_HasBeenGathered() end)
-    pcall(function() a:OnHasBeenGathered() end)
-    pcall(function() a:ShowSkeletalMesh() end)
+end
+
+-- Spawn a brand-new node. Deferred spawning via UGameplayStatics is the only respawn
+-- primitive the game gives us.
+local function tryGet(fn)
+    local ok, v = pcall(fn)
+    if ok then return v end
+    return nil
+end
+
+local gs, kml  -- CDOs, stable for the process
+
+local function spawnReplacement(e)
+    gs  = gs  or tryGet(function() return UEHelpers.GetGameplayStatics() end)
+    kml = kml or tryGet(function() return UEHelpers.GetKismetMathLibrary() end)
+    -- Not cached: the world context changes when a save is loaded.
+    local wco = tryGet(function() return UEHelpers.GetWorldContextObject() end)
+    if not (gs and kml and wco) then return false end
+
+    -- Re-resolve the class now. If its asset has been unloaded, skip rather than crash.
+    local cls = tryGet(function() return StaticFindObject(e.clsPath) end)
+    if not cls then
+        if cfg.Verbose then log("spawn skipped for " .. e.cn .. " — class not loaded") end
+        return false
+    end
+
+    local spawned
+    local ok, err = pcall(function()
+        local xform = kml:MakeTransform(
+            { X = e.x, Y = e.y, Z = e.z },
+            { Pitch = e.pitch, Yaw = e.yaw, Roll = e.roll },
+            { X = 1.0, Y = 1.0, Z = 1.0 })
+        -- 1 = ESpawnActorCollisionHandlingMethod::AlwaysSpawn
+        local a = gs:BeginDeferredActorSpawnFromClass(wco, cls, xform, 1, nil, 0)
+        if not a then error("deferred spawn returned nil") end
+        gs:FinishSpawningActor(a, xform, 0)
+        spawned = a
+    end)
+
+    if not ok then
+        if not spawnFailLogged then
+            spawnFailLogged = true
+            log("spawn failed for " .. e.cn .. ": " .. tostring(err))
+        end
+        return false
+    end
+
+    if cfg.Verbose then log("respawned " .. e.cn) end
+    return true
 end
 
 -- ===== DEEP SCAN (temporary diagnostic) =====
@@ -271,57 +394,259 @@ local function deepScan()
     log(line)
 end
 
+-- Every actor touched below comes from THIS scan's list. Nothing that outlives the scan
+-- holds an actor — that is what crashed the game when an area unloaded.
 local function tick()
     local s = currentSettings()
     if not s.enabled then return end
 
     if cfg.DeepScan then pcall(deepScan) end
 
-    local now = os.time()
-    for _, a in ipairs(FindAllOf("UWEWorldPopResourceBaseActor") or {}) do
-        local ok, valid = pcall(function() return a:IsValid() end)
-        if ok and valid then
-            local name = className(a)
+    local now   = os.time()
+    local nodes = FindAllOf("UWEWorldPopResourceBaseActor") or {}
+    local p     = playerPos()
 
-            if s.debug and name ~= "" and not seenNames[name] then
+    ticks = ticks + 1
+
+    if probe then pcall(function() probe.run(nodes, log) end) end
+
+    -- Nothing to do without a player to measure distance from.
+    if not p then return end
+
+    -- The world holds well over a thousand resource actors, and this runs on the game
+    -- thread. Reflecting over every one of them each scan is what made the game hitch
+    -- every 5 seconds. Almost all of them are kilometres away and cannot be harvested,
+    -- so cull by distance FIRST, using one cheap lookup, and do the real work only for
+    -- the handful within reach.
+    --
+    -- Resource nodes never move, so their positions are cached by object address. Entries
+    -- do go stale — the engine recycles addresses once it collects an actor — so they are
+    -- re-read after a while. That refresh is spread across scans rather than dropping the
+    -- whole cache at once, which would just move the hitch to once a minute.
+    local refreshBudget = 150
+
+    -- Swimming into a new area streams in hundreds of actors at once, none of them cached.
+    -- Reading them all in a single scan is a visible hitch, so spread that over a few
+    -- scans too; a node missed this pass is simply picked up on the next one.
+    local coldBudget = 250
+
+    -- 1. Read the world as it is right now, near the player.
+    --    standing  : a healthy node occupies this spot
+    --    nearIntact: what we will spawn from if it gets harvested
+    --    flagged   : gathered but NOT destroyed (loose pickups, slugs, and nodes already
+    --                gathered when the save loaded) -> these can be un-flagged in place
+    local standing, nearIntact, flagged = {}, {}, {}
+
+    for _, a in ipairs(nodes) do
+        pcall(function()
+            local addr
+            pcall(function() addr = tostring(a:GetAddress()) end)
+            if not addr then return end
+
+            local at = locCache[addr]
+            if at and (ticks - at.t) >= 12 and refreshBudget > 0 then
+                refreshBudget = refreshBudget - 1
+                at = nil
+            end
+            if not at then
+                if coldBudget <= 0 then return end   -- catch it on the next scan
+                coldBudget = coldBudget - 1
+                local loc
+                pcall(function() loc = a:K2_GetActorLocation() end)
+                if not loc then return end
+                at = { x = loc.X, y = loc.Y, z = loc.Z, t = ticks }
+                locCache[addr] = at
+            end
+
+            local dx, dy, dz = at.x - p.X, at.y - p.Y, at.z - p.Z
+            if dx * dx + dy * dy + dz * dz > NEAR2 then return end   -- too far to matter
+
+            -- Within reach: now it is worth the reflection calls.
+            local gathered, destroyed, valid = nodeState(a)
+            if valid == false or destroyed == true then return end
+
+            local name = className(a)
+            if name == "" then return end
+
+            if s.debug and not seenNames[name] then
                 seenNames[name] = true
                 log("found resource class: " .. name)
             end
 
-            local cooldown = matchSeconds(name, s.active)
-            if cooldown then
-                local addr = tostring(a:GetAddress())
-                local staticNode = isStaticNode(name)
-                -- A static node we've already reset: leave it alone so we don't
-                -- fight the game's re-gathering (which causes flicker).
-                if not (staticNode and staticDone[addr]) then
-                    local g
-                    pcall(function() g = a.bHasBeenGathered end)
-                    if g == true then
-                        local t = picked[addr]
-                        if not t then
-                            picked[addr] = now
-                        elseif now - t >= cooldown then
-                            bringBack(a)
-                            picked[addr] = nil
-                            if staticNode then staticDone[addr] = true end
-                        end
-                    elseif g == false then
-                        picked[addr] = nil
+            if not matchSeconds(name, s.active) then return end
+
+            local loc
+            pcall(function() loc = a:K2_GetActorLocation() end)
+            if not loc or not plausible(loc.X, loc.Y, loc.Z) then return end
+
+            local key = keyOf(name, loc.X, loc.Y, loc.Z)
+
+            if gathered == true then
+                flagged[key] = a
+                return
+            end
+            if gathered ~= false then return end
+
+            standing[key] = true
+
+            do
+                do
+                    local rot, cp
+                    pcall(function() rot = a:K2_GetActorRotation() end)
+                    cp = classPath(a)
+                    if rot and cp then
+                        nearIntact[key] = {
+                            cn = name, clsPath = cp,
+                            x = loc.X, y = loc.Y, z = loc.Z,
+                            pitch = rot.Pitch, yaw = rot.Yaw, roll = rot.Roll,
+                            static = isStaticNode(name),
+                        }
+                    end
+                end
+            end
+        end)
+    end
+
+    -- 2. A spot we were watching that no longer has a node standing on it has been
+    --    harvested. This is the whole detection: no flag to read, no actor to touch —
+    --    which is exactly why it also works for the nodes we spawned ourselves, since
+    --    the game never flags those as gathered.
+    local cooldown = s.active[1] and s.active[1].seconds or nil
+    for key, e in pairs(snapshot) do
+        if not standing[key] and not pending[key] then
+            -- It could also have vanished because the area streamed out. Only count it as
+            -- a harvest if the player is still standing next to the spot.
+            local near = false
+            if p then
+                local dx, dy, dz = e.x - p.X, e.y - p.Y, e.z - p.Z
+                near = (dx * dx + dy * dy + dz * dz) <= NEAR2
+            end
+            local secs = cooldown or 300
+            if near then
+                pending[key] = {
+                    cn = e.cn, clsPath = e.clsPath, static = e.static,
+                    x = e.x, y = e.y, z = e.z,
+                    pitch = e.pitch, yaw = e.yaw, roll = e.roll,
+                    due = now + secs,
+                }
+                if cfg.Verbose then
+                    log(string.format("queued %s at (%.0f, %.0f, %.0f) — back in %ss",
+                        e.cn, e.x, e.y, e.z, tostring(secs)))
+                end
+            end
+        end
+    end
+
+    -- 3. Nodes sitting there flagged-but-alive: queue them too, unless a healthy node is
+    --    already on that spot.
+    for key, a in pairs(flagged) do
+        if not standing[key] and not pending[key] then
+            local loc, rot, cp, name
+            pcall(function() loc = a:K2_GetActorLocation() end)
+            pcall(function() rot = a:K2_GetActorRotation() end)
+            cp   = classPath(a)
+            name = className(a)
+            if loc and rot and cp and name ~= "" and plausible(loc.X, loc.Y, loc.Z) then
+                local secs = matchSeconds(name, s.active) or 300
+                pending[key] = {
+                    cn = name, clsPath = cp, static = isStaticNode(name),
+                    x = loc.X, y = loc.Y, z = loc.Z,
+                    pitch = rot.Pitch, yaw = rot.Yaw, roll = rot.Roll,
+                    due = now + secs,
+                }
+                if cfg.Verbose then
+                    log(string.format("queued %s at (%.0f, %.0f, %.0f) — back in %ss  [flagged]",
+                        name, loc.X, loc.Y, loc.Z, tostring(secs)))
+                end
+            end
+        end
+    end
+
+    snapshot = nearIntact
+
+    -- 3b. Backstop. A spot we have respawned at before, which is now empty while the
+    --     player is standing next to it, was harvested — whether or not we caught the
+    --     moment it vanished. Without this a single missed scan leaves the spot dead
+    --     forever; with it, the spot always heals itself on the next pass.
+    for key, e in pairs(watched) do
+        local dx, dy, dz = 0, 0, 0
+        if p then dx, dy, dz = e.x - p.X, e.y - p.Y, e.z - p.Z end
+        local near = p and (dx * dx + dy * dy + dz * dz) <= NEAR2
+
+        if not near then
+            -- Out of range: forget it. Otherwise, when the player swims back and the area
+            -- has not finished re-streaming its actors, the spot would look "empty" and we
+            -- would hand out a free resource node nobody harvested.
+            watched[key] = nil
+        elseif not standing[key] and not flagged[key] and not pending[key] then
+            do
+                local secs = matchSeconds(e.cn, s.active)
+                if secs then
+                    pending[key] = {
+                        cn = e.cn, clsPath = e.clsPath, static = e.static,
+                        x = e.x, y = e.y, z = e.z,
+                        pitch = e.pitch, yaw = e.yaw, roll = e.roll,
+                        due = now + secs,
+                    }
+                    if cfg.Verbose then
+                        log(string.format("queued %s at (%.0f, %.0f, %.0f) — back in %ss  [empty spot]",
+                            e.cn, e.x, e.y, e.z, tostring(secs)))
                     end
                 end
             end
         end
     end
+
+    -- 4. Bring back everything whose cooldown has elapsed.
+    for key, e in pairs(pending) do
+        if now >= e.due then
+            if standing[key] then
+                -- The area re-streamed the original back on its own; nothing to do.
+                if cfg.Verbose then log("skipped " .. e.cn .. " — a node is already there") end
+            elseif not e.static and flagged[key] then
+                -- Alive, just flagged: clearing the flag is enough, and cheaper.
+                pcall(bringBack, flagged[key])
+                if cfg.Verbose then log("restored " .. e.cn .. " in place") end
+            else
+                -- Clear the harvested husk off the spot before putting a new node on it.
+                -- Without this every cycle leaves another gathered-but-undestroyed actor
+                -- stacked at the same coordinates.
+                if flagged[key] then
+                    pcall(function() flagged[key]:K2_DestroyActor() end)
+                end
+                pcall(spawnReplacement, e)
+
+                -- Record the spot as occupied RIGHT NOW. The scan that builds `snapshot`
+                -- ran before this spawn, so without this the new node is invisible to the
+                -- next scan's "what disappeared?" check — and a player who harvests it
+                -- before the next scan (5s) would kill the spot forever. That is what
+                -- made a spot stop respawning after a round or two.
+                snapshot[key] = {
+                    cn = e.cn, clsPath = e.clsPath, static = e.static,
+                    x = e.x, y = e.y, z = e.z,
+                    pitch = e.pitch, yaw = e.yaw, roll = e.roll,
+                }
+                watched[key] = snapshot[key]
+            end
+            pending[key] = nil
+        end
+    end
 end
+
 
 LoopAsync(cfg.CheckIntervalMs, function()
     ExecuteInGameThread(function() pcall(tick) end)
     return false
 end)
 
-if hasModSettings then
-    log("ready v1.0.0 (lang=" .. lang.code .. ", SN2ModSettings detected — adjust in the in-game menu)")
-else
-    log("ready v1.0.0 (lang=" .. lang.code .. ", using config.lua — SN2ModSettings not found)")
+local how = hasModSettings and "SN2ModSettings detected — adjust in the in-game menu"
+                           or  "using config.lua — SN2ModSettings not found"
+log("ready v2.0.0 (lang=" .. lang.code .. ", " .. how .. ")")
+
+do  -- report the settings actually in effect, so a stale menu value is never a mystery
+    local s = currentSettings()
+    log(string.format("settings: enabled=%s  respawn=%ds  (%s)  resources=%d  scan=%dms",
+        tostring(s.enabled), s.seconds,
+        s.fromMenu and "from the in-game menu" or "from config.lua",
+        #s.active, cfg.CheckIntervalMs))
 end

@@ -11,7 +11,7 @@ local strings = {}
 strings.en = {
     -- Mod manifest
     display        = "Resource Respawn",
-    modDescription = "Gathered resources respawn after a cooldown.",
+    modDescription = "Gathered resources come back where they stood, on a cooldown you set.",
 
     -- Master switch
     enableTitle = "Enable mod",
@@ -19,7 +19,7 @@ strings.en = {
 
     -- Global respawn-time slider
     timeTitle = "Respawn time (sec)",
-    timeDesc  = "Cooldown for all resources. Only SMALL loose pickups (and water slugs) come back instantly. Every medium/large node you break with a Sonic Resonator needs a Save + reload + moving far away (after this time) — not every item respawns on the spot. If one isn't back, check your set time first.",
+    timeDesc  = "Cooldown for every resource. Mined deposits, loose pickups and water slugs all come back live, right where they stood — no save reload needed. Stay near the spot and it reappears once this time has passed.",
 
     -- Debug toggle
     debugTitle = "Debug: log resource names",

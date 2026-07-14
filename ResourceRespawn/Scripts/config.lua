@@ -8,6 +8,8 @@ return {
     CheckIntervalMs  = 5000,     -- how often to scan (ms); 5000 so the 5s minimum respawn time is responsive
     DebugListNames   = false,    -- true = print every resource class name to the log
     DeepScan         = false,    -- diagnostic: log the nearest actors to the player (off; only for finding new resource classes)
+    Probe            = false,    -- diagnostic: reflection dump / spawn experiment (dev only; see Scripts/probe.lua)
+    Verbose          = false,    -- log each queue/respawn to UE4SS.log (dev only)
 
     -- Global respawn time (seconds) applied to every resource.
     -- Overridden by the in-game slider (min 5, step 5).
