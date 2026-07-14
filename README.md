@@ -8,11 +8,39 @@ harvestable resources and configurable in-game via
 
 ## What it does
 
-Every `CheckIntervalMs` (default 5s) the mod scans loaded `UWEWorldPopResourceBaseActor`
-instances. For each gathered node (`bHasBeenGathered == true`) whose class name matches
-an enabled resource, it waits the **global respawn time** and then resets the node
-(`bHasBeenGathered = false`, a fresh `ResourceId`, re-shown mesh) so the game treats it
-as new.
+Gathered resources come back where they stood, on a cooldown you set — deposits
+included, live, with no save reload.
+
+## How it works
+
+Mining a deposit **destroys** the actor: `bActorIsBeingDestroyed` flips to true, and
+`UWEWorldPopResourceBaseActor` exposes no reset or respawn function (nor does anything
+else in `/Script/UWEWorldPopulation2` — the resource subsystem, the global resource
+storage and the seeded-resource octree all have zero callable functions). So clearing
+`bHasBeenGathered` on a mined deposit is editing a corpse. That is why v1 could only get
+them back after the area re-streamed.
+
+v2 does not revive the node. Every `CheckIntervalMs` (default 5s) it snapshots the intact
+nodes within ~150m of the player — class path, position, rotation. When a snapshotted spot
+no longer has a node standing on it, that spot was harvested; once the cooldown elapses the
+mod spawns a fresh actor of the same class there via
+`UGameplayStatics::BeginDeferredActorSpawnFromClass` + `FinishSpawningActor`.
+
+Nodes the game leaves alive after harvest (loose pickups, water slugs) take a cheaper
+path: clear `bHasBeenGathered` in place.
+
+Three constraints shape the implementation, each learned the hard way:
+
+- **Never hold an actor between scans.** When an area unloads the engine frees those
+  actors, and touching one afterwards is an access violation that kills the game — no
+  `pcall` catches it. Everything remembered between scans is a class path and a
+  transform; every actor touched comes from the current scan.
+- **Never read a transform off a dying actor.** A harvested node reports its location as
+  `(0,0,0)`, which once had the mod spawning deposits at the world origin, kilometres out
+  to sea. Positions come from the snapshot taken while the node was standing.
+- **Detect the harvest by absence, not by a flag.** Nodes the mod spawns itself are not
+  registered with the game's world-population system, so the game never sets
+  `bHasBeenGathered` on them. Watching for the node to be *gone* works for both.
 
 One global respawn-time slider (5s–60min) applies to every resource, plus a per-resource
 on/off toggle. Supported resources:
@@ -24,16 +52,17 @@ Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture.
 > `Fulgurite`, Creature Enamel node = `NeedleSharkNeedles`, Axum = `AxumBioprintCulture_Cage`.
 > Lithium is matched as `lithium_` to skip the Clamthulu-only "Lithium Pearl".
 
-## What respawns when
+## Known limitations
 
-- **Live (instant, on your timer):** small loose hand-picked pickups (e.g. small
-  Titanium, Copper, Quartz) and Water Slug.
-- **After a Save + reload + moving far away:** every medium/large node/deposit you break
-  with a Sonic Resonator. The game keeps their "gathered" state in memory during a
-  session, so the mod resets them once (no flicker) and they reappear once the area
-  re-streams from a reload — after the set time has passed.
-- **Not supported:** Troilite. Its "Mineralized Clinker" is a `StaticMeshActor` the mod
-  can't reset; it's listed in the menu as `(unsupported)`.
+- **Range.** The mod only acts within ~150m of the player. That distance cull is what
+  keeps the scan cheap; without it, reflecting over all ~1400 resource actors every 5s
+  hitched the frame. A node harvested and then abandoned respawns when you return.
+- **Respawned nodes are not saved.** They are spawned at runtime, so a save reload drops
+  them — but on load the mod sees the spot is empty and refills it anyway.
+- **Co-op.** Spawning is local and does not replicate; every player needs the mod with
+  the same settings, and deposit respawn is unverified in co-op.
+- **Troilite.** Its "Mineralized Clinker" is a `StaticMeshActor` with no gathered state
+  to read; listed in the menu as `(unsupported)`.
 
 ## Configuration
 
@@ -62,24 +91,20 @@ SN2-Resource-Respawn/        <- repo root
   NEXUS.txt                  <- mod page description (BBCode)
   LICENSE
   deploy.sh                  <- copies the mod into the game + Vortex staging
+  CHANGELOG.md
   ResourceRespawn/           <- deployable mod folder (zip this for Vortex)
     enabled.txt
     Scripts/
       main.lua
       config.lua
       lang.lua
+      probe.lua              <- reflection probe, dev only (config.Probe)
 ```
 
 ## Deploy
 
 Run `deploy.sh` (Git Bash) to copy the mod into the live game folder and the Vortex
 staging folder. Restart the game to load changes (Lua loads at startup).
-
-## Known issues
-
-- Mined deposits/outcrops only reappear after a Save + reload + moving away (see
-  "What respawns when").
-- Troilite is shown but unsupported.
 
 ## Acknowledgments
 
