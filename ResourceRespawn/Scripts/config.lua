@@ -10,6 +10,7 @@ return {
     DeepScan         = false,    -- diagnostic: log the nearest actors to the player (off; only for finding new resource classes)
     Probe            = false,    -- diagnostic: reflection dump / spawn experiment (dev only; see Scripts/probe.lua)
     Verbose          = false,    -- log each queue/respawn to UE4SS.log (dev only)
+    Profile          = false,    -- diagnostic: log where each scan spends its time (for chasing hitches)
 
     -- Global respawn time (seconds) applied to every resource.
     -- Overridden by the in-game slider (min 5, step 5).

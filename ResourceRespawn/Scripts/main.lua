@@ -83,7 +83,7 @@ local function writeRegistration()
         "return {\n",
         '    name = "ResourceRespawn",\n',
         string.format("    display = %q,\n", lang.s("display")),
-        '    version = "2.0.0",\n',
+        '    version = "2.0.1",\n',
         string.format("    description = %q,\n", lang.s("modDescription")),
         "    settings = {\n",
         string.format(
@@ -133,8 +133,22 @@ lang.onRefresh = writeRegistration
 
 local hasModSettings = writeRegistration()
 
--- Merge settings: config.lua defaults, overridden by the in-game menu (saved) if present
+-- Merge settings: config.lua defaults, overridden by the in-game menu (saved) if present.
+--
+-- Reading and compiling the saved-settings file is disk I/O on the game thread, and the
+-- scan below asked for settings on every single pass. The menu rewrites that file only
+-- when the player changes something, so the result is cached and refreshed every few
+-- seconds instead. A setting taking a moment to take effect is not something anyone
+-- notices; a disk stall in the hot path is.
+local SETTINGS_TTL = 20   -- seconds
+local settingsCache, settingsAt = nil, nil
+
 local function currentSettings()
+    local now = os.time()
+    if settingsCache and settingsAt and (now - settingsAt) < SETTINGS_TTL then
+        return settingsCache
+    end
+
     local saved = hasModSettings and loadLuaTable(MS_SAVED_PATH) or nil
 
     local function pick(key, fallback)
@@ -146,7 +160,9 @@ local function currentSettings()
 
     -- Single global respawn time for all resources.
     local def = cfg.RespawnSeconds or 300
-    local seconds = tonumber(pick("RespawnSeconds", def)) or def
+    -- The menu slider hands back a float (300.0). Left as one it reaches string.format's
+    -- %d further down, which in Lua 5.4 is an error, not a rounding.
+    local seconds = math.floor(tonumber(pick("RespawnSeconds", def)) or def)
     if seconds < 1 then seconds = 1 end
 
     -- Build the list of enabled resources, all sharing the global respawn time.
@@ -166,8 +182,10 @@ local function currentSettings()
 
     local debug = pick("DebugListNames", cfg.DebugListNames)
 
-    return { enabled = enabled, active = active, debug = debug,
-             seconds = seconds, fromMenu = saved ~= nil }
+    settingsCache = { enabled = enabled, active = active, debug = debug,
+                      seconds = seconds, fromMenu = saved ~= nil }
+    settingsAt = now
+    return settingsCache
 end
 
 -- ===== Respawn logic =====
@@ -198,10 +216,42 @@ local locCache = {}   -- actor address -> position. Nodes never move; this keeps
                       -- from calling into the engine for actors that are far away.
 local seenNames = {}
 local spawnFailLogged = false
-local ticks = 0
+local ticks = 0   -- full scans performed
+local wakes = 0   -- timer fires, including the ones we skip
 
 local NEAR  = 15000   -- 150m; you can only harvest what is close by
 local NEAR2 = NEAR * NEAR
+
+-- Cache maintenance. The ages are in seconds, not scans, so that changing how often we
+-- scan does not silently change how long a cached position is trusted.
+local REFRESH_AFTER = 60     -- re-read a cached position once it is this old
+local PRUNE_EVERY   = 60     -- scans between sweeps of locCache
+local PRUNE_STALE   = 300    -- drop an entry that has not been seen for this long
+
+-- Reflection helpers.
+--
+-- The scan below walks every resource actor in the world, on the game thread. It therefore
+-- must not allocate. `pcall(function() ... end)` builds a fresh closure on every call, so
+-- with a thousand-plus nodes that was thousands of throwaway closures per scan; the GC
+-- churn that followed is exactly the kind of thing that shows up as a periodic hitch.
+-- These take the actor as an argument instead, so pcall receives a function that already
+-- exists and nothing is allocated.
+local function rawAddr(a)      return a:GetAddress() end
+local function rawLoc(a)       return a:K2_GetActorLocation() end
+local function rawRot(a)       return a:K2_GetActorRotation() end
+local function rawName(a)      return a:GetClass():GetFName():ToString() end
+local function rawFullName(a)  return a:GetClass():GetFullName() end
+local function rawGathered(a)  return a.bHasBeenGathered end
+local function rawDestroyed(a) return a.bActorIsBeingDestroyed end
+local function rawValid(a)     return a:IsValid() end
+
+-- pcall that yields nil on failure rather than the error message, so callers can treat a
+-- failed read the same as an absent value.
+local function try(fn, a)
+    local ok, v = pcall(fn, a)
+    if ok then return v end
+    return nil
+end
 
 -- Deposits/outcrops are the ones the game destroys on harvest.
 local function isStaticNode(name)
@@ -213,8 +263,7 @@ end
 -- Always a string. A half-destroyed actor can hand back nil, and callers do name:lower() —
 -- one nil would throw and take the whole scan down with it.
 local function className(a)
-    local n
-    pcall(function() n = a:GetClass():GetFName():ToString() end)
+    local n = try(rawName, a)
     if type(n) ~= "string" then return "" end
     return n
 end
@@ -223,8 +272,7 @@ end
 -- We remember the path, not the UClass: a class can be unloaded while its spot is on
 -- cooldown, and we re-resolve it at spawn time instead of holding a stale pointer.
 local function classPath(a)
-    local full
-    pcall(function() full = a:GetClass():GetFullName() end)
+    local full = try(rawFullName, a)
     if type(full) ~= "string" then return nil end
     return full:match("%s(.+)$") or full
 end
@@ -239,11 +287,7 @@ local function matchSeconds(name, active)
 end
 
 local function nodeState(a)
-    local gathered, destroyed, valid
-    pcall(function() gathered  = a.bHasBeenGathered end)
-    pcall(function() destroyed = a.bActorIsBeingDestroyed end)
-    pcall(function() valid     = a:IsValid() end)
-    return gathered, destroyed, valid
+    return try(rawGathered, a), try(rawDestroyed, a), try(rawValid, a)
 end
 
 -- A destroyed actor reports its location as (0,0,0). Refuse such a transform outright,
@@ -294,6 +338,10 @@ end
 
 local gs, kml  -- CDOs, stable for the process
 
+-- Class lookups resolved during the current scan. Reset at the top of every scan; see the
+-- note in spawnReplacement for why this is not kept any longer than that.
+local scanCls = {}
+
 local function spawnReplacement(e)
     gs  = gs  or tryGet(function() return UEHelpers.GetGameplayStatics() end)
     kml = kml or tryGet(function() return UEHelpers.GetKismetMathLibrary() end)
@@ -302,7 +350,17 @@ local function spawnReplacement(e)
     if not (gs and kml and wco) then return false end
 
     -- Re-resolve the class now. If its asset has been unloaded, skip rather than crash.
-    local cls = tryGet(function() return StaticFindObject(e.clsPath) end)
+    --
+    -- Memoised for the duration of one scan only. StaticFindObject walks the object array,
+    -- and a scan where a batch of the same resource came due at once was paying for that
+    -- walk once per node; profiling caught those scans stalling the game for most of a
+    -- second. It is deliberately not kept between scans: a class can be unloaded in the
+    -- meantime, and a stale UClass pointer is the same class of bug as a stale actor.
+    local cls = scanCls[e.clsPath]
+    if cls == nil then
+        cls = tryGet(function() return StaticFindObject(e.clsPath) end) or false
+        scanCls[e.clsPath] = cls
+    end
     if not cls then
         if cfg.Verbose then log("spawn skipped for " .. e.cn .. " — class not loaded") end
         return false
@@ -394,17 +452,47 @@ local function deepScan()
     log(line)
 end
 
+-- How many timer fires to skip between full scans.
+--
+-- A scan costs a walk of the engine's whole object array, which profiling measured at 30ms
+-- and up, on the game thread. Paying that every five seconds to service a five-minute
+-- respawn timer buys nothing the player can perceive, so the real interval is scaled to
+-- the respawn time actually chosen and capped at both ends: never coarser than 20s, so a
+-- harvest is still noticed promptly, and never finer than the timer that was configured.
+local function scanStride(s)
+    local base = (cfg.CheckIntervalMs or 5000) / 1000
+    if base <= 0 then return 1 end
+    local want = s.seconds / 10
+    if want < 5  then want = 5  end
+    if want > 20 then want = 20 end
+    local n = math.floor(want / base + 0.5)
+    if n < 1 then n = 1 end
+    return n
+end
+
 -- Every actor touched below comes from THIS scan's list. Nothing that outlives the scan
 -- holds an actor — that is what crashed the game when an area unloaded.
 local function tick()
     local s = currentSettings()
     if not s.enabled then return end
 
+    -- Cheapest possible early out: the skipped fires must not touch the engine at all.
+    wakes = wakes + 1
+    if (wakes % scanStride(s)) ~= 0 then return end
+
     if cfg.DeepScan then pcall(deepScan) end
 
-    local now   = os.time()
+    local now = os.time()
+
+    -- cfg.Profile splits the scan into its three phases so a hitch can be attributed to
+    -- one of them instead of guessed at. os.clock() is CPU time, which is what we want:
+    -- this all runs on the game thread, so CPU time here is frame time the player loses.
+    local prof = cfg.Profile
+    local tFind = prof and os.clock() or 0
     local nodes = FindAllOf("UWEWorldPopResourceBaseActor") or {}
-    local p     = playerPos()
+    if prof then tFind = os.clock() - tFind end
+
+    local p = playerPos()
 
     ticks = ticks + 1
 
@@ -423,7 +511,12 @@ local function tick()
     -- do go stale — the engine recycles addresses once it collects an actor — so they are
     -- re-read after a while. That refresh is spread across scans rather than dropping the
     -- whole cache at once, which would just move the hitch to once a minute.
-    local refreshBudget = 150
+    --
+    -- 150 a scan turned out to be most of what was left of the scan cost: profiling showed
+    -- the loop spending 19-36ms with 150 forced re-reads on every single pass, in a world
+    -- that was otherwise fully cached. Positions do not go stale anywhere near fast enough
+    -- to be worth that, so the trickle is much slower now.
+    local refreshBudget = 25
 
     -- Swimming into a new area streams in hundreds of actors at once, none of them cached.
     -- Reading them all in a single scan is a visible hitch, so spread that over a few
@@ -437,74 +530,93 @@ local function tick()
     --                gathered when the save loaded) -> these can be un-flagged in place
     local standing, nearIntact, flagged = {}, {}, {}
 
+    -- Defined once per scan, not once per actor. The old shape built this closure inside
+    -- the loop, so every node in the world cost a throwaway function object every scan.
+    local function processNode(a)
+        -- The address is only ever used as a table key, so a number can be used as-is
+        -- instead of minting a garbage string for every node on every scan. Anything that
+        -- is not a number still goes through tostring(), because a userdata key would hash
+        -- by identity and quietly miss the cache on every lookup.
+        local addr = try(rawAddr, a)
+        if type(addr) ~= "number" then
+            addr = addr ~= nil and tostring(addr) or nil
+        end
+        if not addr then return end
+
+        local at = locCache[addr]
+        if at and (now - at.t) >= REFRESH_AFTER and refreshBudget > 0 then
+            refreshBudget = refreshBudget - 1
+            at = nil
+        end
+        if not at then
+            if coldBudget <= 0 then return end   -- catch it on the next scan
+            coldBudget = coldBudget - 1
+            local loc = try(rawLoc, a)
+            if not loc then return end
+            at = { x = loc.X, y = loc.Y, z = loc.Z, t = now }
+            locCache[addr] = at
+        end
+        -- Stamped for every node this scan saw, near or far. The pruner below reads it to
+        -- tell "still in the world" apart from "gone, and this entry is dead weight".
+        at.seen = now
+
+        local dx, dy, dz = at.x - p.X, at.y - p.Y, at.z - p.Z
+        if dx * dx + dy * dy + dz * dz > NEAR2 then return end   -- too far to matter
+
+        -- Within reach: now it is worth the reflection calls.
+        local gathered, destroyed, valid = nodeState(a)
+        if valid == false or destroyed == true then return end
+
+        local name = className(a)
+        if name == "" then return end
+
+        if s.debug and not seenNames[name] then
+            seenNames[name] = true
+            log("found resource class: " .. name)
+        end
+
+        if not matchSeconds(name, s.active) then return end
+
+        local loc = try(rawLoc, a)
+        if not loc or not plausible(loc.X, loc.Y, loc.Z) then return end
+
+        local key = keyOf(name, loc.X, loc.Y, loc.Z)
+
+        if gathered == true then
+            flagged[key] = a
+            return
+        end
+        if gathered ~= false then return end
+
+        standing[key] = true
+
+        local rot = try(rawRot, a)
+        local cp  = classPath(a)
+        if rot and cp then
+            nearIntact[key] = {
+                cn = name, clsPath = cp,
+                x = loc.X, y = loc.Y, z = loc.Z,
+                pitch = rot.Pitch, yaw = rot.Yaw, roll = rot.Roll,
+                static = isStaticNode(name),
+            }
+        end
+    end
+
+    local tLoop = prof and os.clock() or 0
     for _, a in ipairs(nodes) do
-        pcall(function()
-            local addr
-            pcall(function() addr = tostring(a:GetAddress()) end)
-            if not addr then return end
+        pcall(processNode, a)
+    end
+    if prof then tLoop = os.clock() - tLoop end
+    local tTail = prof and os.clock() or 0
 
-            local at = locCache[addr]
-            if at and (ticks - at.t) >= 12 and refreshBudget > 0 then
-                refreshBudget = refreshBudget - 1
-                at = nil
-            end
-            if not at then
-                if coldBudget <= 0 then return end   -- catch it on the next scan
-                coldBudget = coldBudget - 1
-                local loc
-                pcall(function() loc = a:K2_GetActorLocation() end)
-                if not loc then return end
-                at = { x = loc.X, y = loc.Y, z = loc.Z, t = ticks }
-                locCache[addr] = at
-            end
-
-            local dx, dy, dz = at.x - p.X, at.y - p.Y, at.z - p.Z
-            if dx * dx + dy * dy + dz * dz > NEAR2 then return end   -- too far to matter
-
-            -- Within reach: now it is worth the reflection calls.
-            local gathered, destroyed, valid = nodeState(a)
-            if valid == false or destroyed == true then return end
-
-            local name = className(a)
-            if name == "" then return end
-
-            if s.debug and not seenNames[name] then
-                seenNames[name] = true
-                log("found resource class: " .. name)
-            end
-
-            if not matchSeconds(name, s.active) then return end
-
-            local loc
-            pcall(function() loc = a:K2_GetActorLocation() end)
-            if not loc or not plausible(loc.X, loc.Y, loc.Z) then return end
-
-            local key = keyOf(name, loc.X, loc.Y, loc.Z)
-
-            if gathered == true then
-                flagged[key] = a
-                return
-            end
-            if gathered ~= false then return end
-
-            standing[key] = true
-
-            do
-                do
-                    local rot, cp
-                    pcall(function() rot = a:K2_GetActorRotation() end)
-                    cp = classPath(a)
-                    if rot and cp then
-                        nearIntact[key] = {
-                            cn = name, clsPath = cp,
-                            x = loc.X, y = loc.Y, z = loc.Z,
-                            pitch = rot.Pitch, yaw = rot.Yaw, roll = rot.Roll,
-                            static = isStaticNode(name),
-                        }
-                    end
-                end
-            end
-        end)
+    -- An entry for an actor that no longer turns up in a scan is dead weight: the engine
+    -- destroyed or streamed it out and will never hand that address back as this node.
+    -- Left alone the table grows for the whole session, which is the shape of a slow leak.
+    if (ticks % PRUNE_EVERY) == 0 then
+        local cutoff = now - PRUNE_STALE
+        for addr, at in pairs(locCache) do
+            if (at.seen or at.t) < cutoff then locCache[addr] = nil end
+        end
     end
 
     -- 2. A spot we were watching that no longer has a node standing on it has been
@@ -564,6 +676,15 @@ local function tick()
 
     snapshot = nearIntact
 
+    -- Watch every intact spot in reach, not only the ones we have respawned at ourselves.
+    -- With a longer gap between scans a harvest can start and finish inside one of them,
+    -- and the "what disappeared since last scan" check above would never see it. The
+    -- backstop below then heals the spot on a later pass, for as long as the player is
+    -- still in the area.
+    for key, e in pairs(nearIntact) do
+        if not watched[key] then watched[key] = e end
+    end
+
     -- 3b. Backstop. A spot we have respawned at before, which is now empty while the
     --     player is standing next to it, was harvested — whether or not we caught the
     --     moment it vanished. Without this a single missed scan leaves the spot dead
@@ -598,8 +719,17 @@ local function tick()
     end
 
     -- 4. Bring back everything whose cooldown has elapsed.
+    --
+    -- Respawning is the expensive half of a scan: every one of them resolves a class and
+    -- spawns an actor. Profiling caught scans where a batch came due together stalling the
+    -- game for most of a second, so only a few are done per scan. Whatever is left stays
+    -- queued, and is already past due, so it goes first next time.
+    scanCls = {}
+    local spawnBudget = 3
+
     for key, e in pairs(pending) do
         if now >= e.due then
+            local settled = true
             if standing[key] then
                 -- The area re-streamed the original back on its own; nothing to do.
                 if cfg.Verbose then log("skipped " .. e.cn .. " — a node is already there") end
@@ -607,7 +737,8 @@ local function tick()
                 -- Alive, just flagged: clearing the flag is enough, and cheaper.
                 pcall(bringBack, flagged[key])
                 if cfg.Verbose then log("restored " .. e.cn .. " in place") end
-            else
+            elseif spawnBudget > 0 then
+                spawnBudget = spawnBudget - 1
                 -- Clear the harvested husk off the spot before putting a new node on it.
                 -- Without this every cycle leaves another gathered-but-undestroyed actor
                 -- stacked at the same coordinates.
@@ -627,9 +758,20 @@ local function tick()
                     pitch = e.pitch, yaw = e.yaw, roll = e.roll,
                 }
                 watched[key] = snapshot[key]
+            else
+                settled = false   -- out of budget this scan; leave it queued
             end
-            pending[key] = nil
+            if settled then pending[key] = nil end
         end
+    end
+
+    if prof then
+        local cached = 0
+        for _ in pairs(locCache) do cached = cached + 1 end
+        log(string.format(
+            "profile: nodes=%d cached=%d cold=%d | find=%.1fms loop=%.1fms tail=%.1fms",
+            #nodes, cached, 250 - coldBudget,
+            tFind * 1000, tLoop * 1000, (os.clock() - tTail) * 1000))
     end
 end
 
@@ -641,12 +783,13 @@ end)
 
 local how = hasModSettings and "SN2ModSettings detected — adjust in the in-game menu"
                            or  "using config.lua — SN2ModSettings not found"
-log("ready v2.0.0 (lang=" .. lang.code .. ", " .. how .. ")")
+log("ready v2.0.1 (lang=" .. lang.code .. ", " .. how .. ")")
 
 do  -- report the settings actually in effect, so a stale menu value is never a mystery
     local s = currentSettings()
-    log(string.format("settings: enabled=%s  respawn=%ds  (%s)  resources=%d  scan=%dms",
+    log(string.format(
+        "settings: enabled=%s  respawn=%ds  (%s)  resources=%d  scan=every %.0fs",
         tostring(s.enabled), s.seconds,
         s.fromMenu and "from the in-game menu" or "from config.lua",
-        #s.active, cfg.CheckIntervalMs))
+        #s.active, scanStride(s) * (cfg.CheckIntervalMs or 5000) / 1000))
 end
