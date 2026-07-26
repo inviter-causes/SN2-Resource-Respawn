@@ -2,13 +2,13 @@
 
 [center][color=#FF4D6D][b]Mined a spot dry? Don't cry — give it a little love and it comes back. ♥[/b][/color][/center]
 
-[center][color=#FF4D6D][b]★ v2.1.0: Troilite finally respawns, and the spots you emptied last session are waiting for you right after login. ★[/b][/color][/center]
+[center][color=#FF4D6D][b]★ v2.1: Troilite finally respawns, and the spots you emptied last session are waiting for you right after login. ★[/b][/color][/center]
 
 In Subnautica 2, loose pickups and wildlife slowly respawn on their own, but mined ore nodes are finite — the game wants you to farm those with a Metal Farm. [b]Resource Respawn[/b] gives every gathered resource a second life on a cooldown [b]you[/b] control, so your favourite spots never truly run dry. ♥
 
 Everything is configurable [b]in-game[/b] — no file editing needed — if you have Mod Settings installed.
 
-[size=4][color=#FF4D6D][b]♥ What's new in 2.1.0[/b][/color][/size]
+[size=4][color=#FF4D6D][b]♥ What's new in 2.1[/b][/color][/size]
 [list]
 [*][b]Troilite respawns now.[/b] The one resource marked [i](unsupported)[/i] is supported. Its Mineralized Clinker turned out to be a real resource node under the hood, so it comes back like everything else. Toggle it in Mod Settings.[/*]
 [*][b]Refill on load.[/b] Spots you emptied in an earlier session, or before you even installed the mod, come back about 15 seconds after you get near them. No more waiting the full timer on every login. On by default; the toggle sits right under the timer slider. (Thanks Fe1eNinamu24 for the idea!)[/*]
@@ -36,8 +36,8 @@ And everything from 2.0 still holds: deposits, loose pickups and water slugs all
 
 [size=4][color=#FF4D6D][b]♥ Compatibility[/b][/color][/size]
 [list]
-[*][b]Existing saves[/b] — safe to add mid-playthrough. Resources you harvested before installing come back too: the mod notices the spot is empty and refills it. No new game needed. (Thanks to Fe1eNinamu24 for confirming.)[/*]
-[*][b]Game version[/b] — reported working on Subnautica 2 [b]1.1[/b]. (Thanks to Fe1eNinamu24.)[/*]
+[*][b]Existing saves[/b] — safe to add mid-playthrough. Resources you harvested before installing come back too, about 15s after you get near them (Refill on load). No new game needed. (Thanks to Fe1eNinamu24 for confirming.)[/*]
+[*][b]Game version[/b] — reported working on 1.1. (Thanks to Fe1eNinamu24.)[/*]
 [*][b]Multiplayer / Co-op[/b] — see Known Issues. Host and client must both install the mod with the [b]same settings[/b]; it does not sync between players.[/*]
 [/list]
 
@@ -61,7 +61,7 @@ With Mod Settings installed, open [b]Settings → Mods → Resource Respawn[/b] 
 [list]
 [*][b]Stay near the spot.[/b] The mod only acts within about 150m of you — that range check is what keeps it light on your framerate. Mine a node and swim off to another biome and it will simply wait: it comes back once you are in range again and the timer has passed.[/*]
 [*][b]Respawned nodes are not written into your save[/b] — they are spawned at runtime. In practice you will not notice: with Refill on load they are back about 15s after you get near the spot.[/*]
-[*][b]Multiplayer / Co-op[/b] — the spawning is local to each machine and does not replicate, so a respawned deposit may not appear for your friends. Everyone needs the mod with the same settings. Co-op was tested on 1.0.0 for the small nodes (thanks Fe1eNinamu24), but deposit spawning is [b]not yet verified in co-op[/b] — reports very welcome. ♥[/*]
+[*][b]Multiplayer / Co-op[/b] — the spawning is local to each machine and does not replicate, so a respawned deposit may not appear for your friends. Everyone needs the mod with the same settings. Co-op was tested on 1.0 for the small nodes (thanks Fe1eNinamu24), but deposit spawning is [b]not yet verified in co-op[/b] — reports very welcome. ♥[/*]
 [*][b]Yield is the game's roll.[/b] A respawned node rolls its own piece count, so it can give more or fewer pieces than the node it replaced.[/*]
 [/list]
 
@@ -71,7 +71,7 @@ This little mod stands on the shoulders of the Subnautica 2 modding community:
 [*][url=https://www.nexusmods.com/subnautica2/mods/269]SlugRespawn[/url] by Casper — the original water-slug respawn mod that inspired this one; Resource Respawn grows its idea to every gatherable resource.[/*]
 [*][url=https://www.nexusmods.com/subnautica2/mods/20]Mod Settings for Subnautica 2[/url] by JustChaldea — the in-game settings framework this mod registers its menu with.[/*]
 [*][url=https://www.nexusmods.com/subnautica2/mods/128]QuickStack[/url] — reference for the localization approach (detecting the game language and serving per-language text).[/*]
-[*][b]Fe1eNinamu24[/b] — for testing existing saves and co-op, confirming the mod runs on Subnautica 2 1.1, suggesting Refill on load, and reporting back in detail. A lot of 2.0.0 and 2.1.0 exists because of that feedback. ♥[/*]
+[*][b]Fe1eNinamu24[/b] — for testing existing saves and co-op, confirming 1.1 support, suggesting Refill on load, and reporting back in detail. A lot of 2.0 and 2.1 exists because of that feedback. ♥[/*]
 [/list]
 Big thanks to these authors. ♥
 
