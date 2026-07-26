@@ -45,18 +45,24 @@
 | ทรัพยากร | คืออะไร / ใช้ทำอะไร |
 |---|---|
 | **Axum Bacterial Culture** | ใช้สร้าง Metal Farm หายากที่สุดในเกม มีแค่ ~5 ชิ้น ปกติไม่ respawn (มอดปลดล็อกให้เกิดใหม่ได้) |
-| **Troilite** ⚠️ *(ยังทำไม่ได้)* | ใช้ทำ Mangalloy Ingot, Entangled Power Cell อยู่โซน Karakorum Metal Farms ปั๊มผ่าน Metal Farm ได้ อย่าใช้ชิ้นสุดท้าย |
+| **Troilite** ✅ *(ทำได้แล้ว)* | ใช้ทำ Mangalloy Ingot, Entangled Power Cell อยู่โซน Karakorum Metal Farms ปั๊มผ่าน Metal Farm ได้ |
 
 ---
 
-## ⚠️ ทำไม Troilite ยังทำไม่ได้
+## ✅ Troilite ทำได้แล้ว (พบคำตอบ 2026-07-26)
 
-Troilite เก็บจาก **Mineralized Clinker** ซึ่งในเกมเป็น `StaticMeshActor` (วัตถุ mesh ธรรมดา)
-ไม่ใช่ resource node แบบแร่อื่น จึง **ไม่มี flag `bHasBeenGathered`** ให้มอดรีเซ็ต — กลไก respawn
-ของมอดเลยจับมันไม่ได้ (ตรงกับที่ Wiki บอกว่า Troilite ออกแบบให้ finite โดยตั้งใจ)
+โน้ตเดิมที่ว่า Clinker เป็น `StaticMeshActor` **ผิด** (หรือเกมอัปเดตเปลี่ยนไปแล้ว)
+catalog probe (Scripts/catalog.lua) ยืนยันจากการยืนเล็ง Clinker จริงในเกมว่า คลาสจริงคือ
 
-ในเมนูจะโชว์เป็น `Troilite (unsupported)` ปิดอยู่และกดแล้วไม่มีผล — ไว้เผื่อวันหลังเจอวิธีจัดการ
-StaticMeshActor ก็จะเปิดใช้งานได้
+```
+BP_ResourceDeposit_DeepRootResonatableResource_C
+```
+
+เป็น world-pop resource เต็มตัว มี `bHasBeenGathered` เหมือนแร่อื่นทุกอย่าง — กลไก respawn
+เดิมของมอดใช้ได้เลย โดย match ด้วย substring `deeprootresonatable`
+
+หมายเหตุ: ถ้าเกมใช้คลาสนี้กับ deposit แบบ Resonator ตัวอื่นในโซนลึกด้วย พวกนั้นจะ respawn
+ใต้ toggle Troilite เหมือนกัน
 
 ## ของที่อยู่นอกขอบเขต
 

@@ -54,9 +54,10 @@ local function makeClass(name)
     }
 end
 
-local function makeActor(name, x, y, z, gathered)
+local function makeActor(name, x, y, z, gathered, scale)
     nextAddr = nextAddr + 8
     local cls = makeClass(name)
+    local s = scale or 1.0
     local a
     a = {
         __addr  = nextAddr,
@@ -67,6 +68,7 @@ local function makeActor(name, x, y, z, gathered)
         GetAddress          = function() bump("GetAddress") return a.__addr end,
         K2_GetActorLocation = function() bump("GetLoc") return { X = x, Y = y, Z = z } end,
         K2_GetActorRotation = function() bump("GetRot") return { Pitch = 0, Yaw = 0, Roll = 0 } end,
+        GetActorScale3D     = function() bump("GetScale") return { X = s, Y = s, Z = s } end,
         GetClass            = function() return cls end,
         IsValid             = function() return a.__alive end,
         OnRep_HasBeenGathered = function() bump("OnRep") end,
@@ -122,7 +124,7 @@ package.loaded["UEHelpers"] = {
         }
     end,
     GetKismetMathLibrary = function()
-        return { MakeTransform = function(_, loc, rot) return { loc = loc, rot = rot } end }
+        return { MakeTransform = function(_, loc, rot, scl) return { loc = loc, rot = rot, scl = scl } end }
     end,
     GetWorldContextObject = function() return { __wco = true } end,
 }
@@ -230,6 +232,7 @@ reset()
 tick()
 check("no location reads once cached", got("GetLoc") == 0, got("GetLoc") .. " reads")
 check("no rotation reads for distant nodes", got("GetRot") == 0, got("GetRot") .. " reads")
+check("no scale reads for distant nodes", got("GetScale") == 0, got("GetScale") .. " reads")
 check("one address lookup per node", got("GetAddress") == FAR, got("GetAddress") .. " vs " .. FAR)
 check("one FindAllOf per scan", got("FindAllOf") == 1, got("FindAllOf"))
 
@@ -335,6 +338,110 @@ check("one scan does not spawn the whole batch", first > 0 and first <= 3,
 tick(4)
 check("nothing queued is dropped", got("BeginSpawn") >= 10,
       got("BeginSpawn") .. " of 10 after 5 scans")
+
+--------------------------------------------------------------------------------
+-- 7. Troilite: the Mineralized Clinker respawns
+--------------------------------------------------------------------------------
+-- Its real class (catalog probe, 2026-07-26) is BP_ResourceDeposit_DeepRoot-
+-- ResonatableResource_C - a normal world-pop resource. This pins the substring
+-- match so a rename in RESOURCES silently dropping it fails a test.
+section("7. Mineralized Clinker (Troilite) respawns")
+
+quiesce()
+local clinker = addNode("BP_ResourceDeposit_DeepRootResonatableResource", 1500, 0, 0, false)
+tick()                                    -- seen standing
+removeNode(clinker)                       -- blasted with the Resonator
+tick()                                    -- absence noticed -> queued
+CLOCK.t = CLOCK.t + 61                    -- past the 15s test cooldown
+reset()
+tick()
+check("clinker spot spawns a replacement", got("BeginSpawn") == 1, got("BeginSpawn"))
+
+--------------------------------------------------------------------------------
+-- 8. The replacement keeps the original node's scale
+--------------------------------------------------------------------------------
+-- The game places some formations scaled up (the Mineralized Clinker in the wild is
+-- larger than the blueprint's 1.0). Spawning at 1.0 shrank them; the transform must
+-- carry the recorded scale through snapshot -> pending -> spawn.
+section("8. respawn keeps the original scale")
+
+quiesce()
+local big = addNode("BP_ResourceDeposit_DeepRootResonatableResource", 1000, 0, 0, false, 2.5)
+tick()                                    -- seen standing (scale recorded)
+removeNode(big)                           -- blasted
+tick()                                    -- queued
+CLOCK.t = CLOCK.t + 61
+reset()
+tick()                                    -- respawns
+check("spawned one replacement", got("BeginSpawn") == 1, got("BeginSpawn"))
+local last = spawned[#spawned]
+local scl = last and last.__xform and last.__xform.scl or nil
+check("replacement carries the 2.5 scale",
+      scl ~= nil and math.abs((scl.X or 0) - 2.5) < 0.001
+      and math.abs((scl.Z or 0) - 2.5) < 0.001,
+      scl and string.format("scale=(%s,%s,%s)", tostring(scl.X), tostring(scl.Y), tostring(scl.Z))
+          or "no scale captured")
+
+--------------------------------------------------------------------------------
+-- 9. Refill on load (Fe1eNinamu24's request)
+--------------------------------------------------------------------------------
+-- On save load the game recreates previously-harvested nodes already flagged
+-- (bHasBeenGathered=true). A flagged node at a spot the mod never saw intact was
+-- harvested in an earlier session (or pre-mod): it gets a ~15s grace instead of the
+-- full timer. A node harvested in front of the mod must still wait the full timer.
+section("9. refill on load")
+
+-- One spawn per distinct X coordinate, so the checks are immune to other spots
+-- re-queueing in the background.
+local function spawnsAt(x)
+    local n = 0
+    for _, sp in ipairs(spawned) do
+        if sp.__xform and sp.__xform.loc and sp.__xform.loc.X == x then n = n + 1 end
+    end
+    return n
+end
+
+writeSaved(120)              -- long timer makes the grace visible; scans every 2nd wake
+quiesce()
+CLOCK.t = CLOCK.t + 60       -- past the settings TTL
+tick(2)
+
+-- The load case: the node appears already flagged, never seen intact.
+-- Coordinates in this section are unique across the whole file: spawnsAt() counts the
+-- accumulated spawn list, so reusing an earlier section's X would double-count.
+addNode("BP_ResourceDeposit_Titanium", 13600, 0, 0, true)
+tick(2)                      -- flagged at an unwatched spot -> queued with the grace
+CLOCK.t = CLOCK.t + 16       -- grace is 15s, full timer would be 120s
+tick(2)
+check("pre-session harvest refills after the grace", spawnsAt(13600) == 1,
+      spawnsAt(13600) .. " spawns at the spot")
+
+-- The live case: seen standing first, then harvested in front of the mod.
+local live = addNode("BP_ResourceDeposit_Titanium", 14000, 0, 0, false)
+tick(2)                      -- standing -> snapshotted and watched
+live.bHasBeenGathered = true -- harvested live (husk stays, flagged)
+tick(2)                      -- queued with the FULL timer
+CLOCK.t = CLOCK.t + 16
+tick(2)
+check("live harvest does NOT use the grace", spawnsAt(14000) == 0,
+      spawnsAt(14000) .. " spawns too early")
+CLOCK.t = CLOCK.t + 121
+tick(2)
+check("live harvest respawns after the full timer", spawnsAt(14000) == 1,
+      spawnsAt(14000) .. " spawns at the spot")
+
+-- The toggle: RefillOnLoad=false means even a never-seen flagged spot waits in full.
+local f9 = assert(realopen(SAVED_PATH, "w"))
+f9:write("return { Enabled = true, RespawnSeconds = 120, Titanium = true, RefillOnLoad = false }\n")
+f9:close()
+CLOCK.t = CLOCK.t + 60       -- settings TTL
+tick(2)
+addNode("BP_ResourceDeposit_Titanium", 14400, 0, 0, true)
+tick(2)
+CLOCK.t = CLOCK.t + 16
+tick(2)
+check("toggle off disables the grace", spawnsAt(14400) == 0,
+      spawnsAt(14400) .. " spawns despite the toggle")
 
 --------------------------------------------------------------------------------
 section("summary")

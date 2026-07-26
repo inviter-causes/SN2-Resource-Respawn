@@ -2,23 +2,21 @@
 
 [center][color=#FF4D6D][b]Mined a spot dry? Don't cry — give it a little love and it comes back. ♥[/b][/color][/center]
 
-[center][color=#FF4D6D][b]★ v2.0.0 — mined deposits now respawn LIVE. No Save. No reload. No swimming away. Break a node, wait your timer, and it grows back in front of you. ★[/b][/color][/center]
+[center][color=#FF4D6D][b]★ v2.1.0: Troilite finally respawns, and the spots you emptied last session are waiting for you right after login. ★[/b][/color][/center]
 
 In Subnautica 2, loose pickups and wildlife slowly respawn on their own, but mined ore nodes are finite — the game wants you to farm those with a Metal Farm. [b]Resource Respawn[/b] gives every gathered resource a second life on a cooldown [b]you[/b] control, so your favourite spots never truly run dry. ♥
 
 Everything is configurable [b]in-game[/b] — no file editing needed — if you have Mod Settings installed.
 
-[size=4][color=#FF4D6D][b]♥ What's new in 2.0.0[/b][/color][/size]
-In 1.0.0, the medium and large nodes you break with a Sonic Resonator only came back after a Save + reload + moving far away. That was the mod's biggest limitation, and it's gone.
-
-It turns out the game [i]destroys[/i] a deposit the moment you mine it — so there was never anything left to "un-gather", and nothing in the game's world-population system offers a way to bring one back. So 2.0.0 stops trying to revive the old node and instead [b]builds a brand new one on the same spot[/b], at the same angle, once your timer runs out.
-
+[size=4][color=#FF4D6D][b]♥ What's new in 2.1.0[/b][/color][/size]
 [list]
-[*][b]Everything respawns live now[/b] — deposits, loose pickups, water slugs. Same spot, same rotation, no reload.[/*]
-[*][b]It really is the node[/b] — the new one is a full resource node: mine it, get the resource, mine it again. Farm one spot as long as you like.[/*]
-[*][b]Much lighter on your framerate[/b] — 1.0.0 reflected over every resource actor in the world on every scan, which could stutter every 5 seconds. 2.0.0 only looks at what is actually near you: roughly 100x less work per scan.[/*]
-[*][b]No more crash[/b] when swimming between areas.[/*]
+[*][b]Troilite respawns now.[/b] The one resource marked [i](unsupported)[/i] is supported. Its Mineralized Clinker turned out to be a real resource node under the hood, so it comes back like everything else. Toggle it in Mod Settings.[/*]
+[*][b]Refill on load.[/b] Spots you emptied in an earlier session, or before you even installed the mod, come back about 15 seconds after you get near them. No more waiting the full timer on every login. On by default; the toggle sits right under the timer slider. (Thanks Fe1eNinamu24 for the idea!)[/*]
+[*][b]Respawned nodes keep their original size.[/b] They used to come back shrunken.[/*]
+[*][b]The respawn slider is easier to tune:[/b] 5s to 10min (was 60min), default 120s. Its description now also explains why very low timers can cost a little performance.[/*]
 [/list]
+
+And everything from 2.0 still holds: deposits, loose pickups and water slugs all respawn [b]live[/b], right where they stood. No Save, no reload, no swimming away. The new node is a full resource node: mine it, get the resource, mine it again. ♥
 
 [size=4][color=#FF4D6D][b]♥ How it works[/b][/color][/size]
 [list]
@@ -30,8 +28,9 @@ It turns out the game [i]destroys[/i] a deposit the moment you mine it — so th
 [size=4][color=#FF4D6D][b]♥ Features[/b][/color][/size]
 [list]
 [*]Every gathered resource respawns after a cooldown you choose[/*]
-[*]One global respawn-time slider (5s–60min)[/*]
-[*]Per-resource on/off toggles: Titanium, Copper, Quartz, Salt, Water Slug, Lead, Silver, Sulfur, Gold, Lithium, Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture (normally finite — this mod lets it respawn)[/*]
+[*]One global respawn-time slider (5s–10min, default 120s)[/*]
+[*]Refill on load: spots emptied in an earlier session refill about 15s after you get near them[/*]
+[*]Per-resource on/off toggles: Titanium, Copper, Quartz, Salt, Water Slug, Lead, Silver, Sulfur, Gold, Lithium, Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture and Troilite (both normally finite — this mod lets them respawn)[/*]
 [*]Auto-detected language (English included; built so other languages are easy to add)[/*]
 [/list]
 
@@ -61,9 +60,9 @@ With Mod Settings installed, open [b]Settings → Mods → Resource Respawn[/b] 
 [size=4][color=#FF4D6D][b]♥ Known Issues[/b][/color][/size]
 [list]
 [*][b]Stay near the spot.[/b] The mod only acts within about 150m of you — that range check is what keeps it light on your framerate. Mine a node and swim off to another biome and it will simply wait: it comes back once you are in range again and the timer has passed.[/*]
-[*][b]Respawned nodes are not written into your save[/b] — they are spawned at runtime. In practice you will not notice: on load the mod sees the spot is empty and refills it on your timer anyway.[/*]
-[*][b]Multiplayer / Co-op[/b] — the 2.0.0 spawning is local to each machine and does not replicate, so a respawned deposit may not appear for your friends. Everyone needs the mod with the same settings. Co-op was tested on 1.0.0 for the small nodes (thanks Fe1eNinamu24), but the new deposit spawning is [b]not yet verified in co-op[/b] — reports very welcome. ♥[/*]
-[*][b]Troilite[/b] is shown in the menu as [i](unsupported)[/i]. Its Mineralized Clinker is a static object with no gathered state the mod can read, so toggling it does nothing — it is listed only for awareness.[/*]
+[*][b]Respawned nodes are not written into your save[/b] — they are spawned at runtime. In practice you will not notice: with Refill on load they are back about 15s after you get near the spot.[/*]
+[*][b]Multiplayer / Co-op[/b] — the spawning is local to each machine and does not replicate, so a respawned deposit may not appear for your friends. Everyone needs the mod with the same settings. Co-op was tested on 1.0.0 for the small nodes (thanks Fe1eNinamu24), but deposit spawning is [b]not yet verified in co-op[/b] — reports very welcome. ♥[/*]
+[*][b]Yield is the game's roll.[/b] A respawned node rolls its own piece count, so it can give more or fewer pieces than the node it replaced.[/*]
 [/list]
 
 [size=4][color=#FF4D6D][b]♥ Credits & thanks[/b][/color][/size]
@@ -72,7 +71,7 @@ This little mod stands on the shoulders of the Subnautica 2 modding community:
 [*][url=https://www.nexusmods.com/subnautica2/mods/269]SlugRespawn[/url] by Casper — the original water-slug respawn mod that inspired this one; Resource Respawn grows its idea to every gatherable resource.[/*]
 [*][url=https://www.nexusmods.com/subnautica2/mods/20]Mod Settings for Subnautica 2[/url] by JustChaldea — the in-game settings framework this mod registers its menu with.[/*]
 [*][url=https://www.nexusmods.com/subnautica2/mods/128]QuickStack[/url] — reference for the localization approach (detecting the game language and serving per-language text).[/*]
-[*][b]Fe1eNinamu24[/b] — for testing existing saves and co-op, confirming the mod runs on Subnautica 2 1.1, and reporting back in detail. A lot of 2.0.0 exists because of that feedback. ♥[/*]
+[*][b]Fe1eNinamu24[/b] — for testing existing saves and co-op, confirming the mod runs on Subnautica 2 1.1, suggesting Refill on load, and reporting back in detail. A lot of 2.0.0 and 2.1.0 exists because of that feedback. ♥[/*]
 [/list]
 Big thanks to these authors. ♥
 

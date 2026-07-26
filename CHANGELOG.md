@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.0
+
+- Troilite now respawns. Its Mineralized Clinker turned out to be a real resource node
+  under the hood, not a static object
+- New: **Refill on load**. Spots emptied in an earlier session (or before installing the
+  mod) come back about 15s after you get near them, instead of waiting the full timer on
+  every login. On by default, toggle is right under the timer slider
+- Respawned nodes keep their original size (they used to come back shrunken)
+- Respawn slider is easier to tune: 5s to 10min (was 60min), default now 120s
+- The slider description now explains why very low timers can cost a little performance
+- Known: a respawned node rolls its own yield, so the piece count can differ from the
+  original. That is the game's roll, not the mod's
+
 ## 2.0.1
 
 - Fixed the stutter that returned every few seconds during play

@@ -17,10 +17,32 @@ try:
 except ImportError:
     sys.exit("lupa is not installed.  Run: python -m pip install lupa")
 
+# lupa auto-selects the newest Lua it bundles (lua55), but on this machine that DLL is
+# blocked by an Application Control policy. Fall back to an allowed build; lua54 matches
+# the Lua 5.4 that UE4SS runs, so behaviour is the closest to the game.
+def _lua_runtime_factory():
+    for name in ("lua54", "lua53", "luajit21", "lua52", "lua51"):
+        try:
+            mod = __import__("lupa", fromlist=[name]).__dict__.get(name)
+            if mod is None:
+                continue
+            mod.LuaRuntime(unpack_returned_tuples=True)  # prove the DLL actually loads
+            return lambda m=mod: m.LuaRuntime(unpack_returned_tuples=True)
+        except Exception:
+            continue
+    try:
+        lupa.LuaRuntime(unpack_returned_tuples=True)
+        return lambda: lupa.LuaRuntime(unpack_returned_tuples=True)
+    except Exception as e:
+        sys.exit(f"no usable Lua runtime in lupa: {e}")
+
+_new_runtime = _lua_runtime_factory()
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 SCRIPTS = REPO / "ResourceRespawn" / "Scripts"
 HARNESS = HERE / "harness.lua"
+CATALOG_HARNESS = HERE / "catalog_harness.lua"
 
 # What the in-game menu would have written. Present so the settings-read test has a real
 # file to open.
@@ -55,14 +77,22 @@ def main() -> int:
         cwd = os.getcwd()
         os.chdir(tmp)
         try:
-            lua = lupa.LuaRuntime(unpack_returned_tuples=True)
-            run = lua.eval(
-                "function(path, scripts)"
-                "  local f = assert(loadfile(path))"
-                "  return f(scripts)"
-                "end"
-            )
-            failures = run(lua_path(HARNESS), lua_path(SCRIPTS))
+            def run_harness(harness: Path) -> int:
+                # A fresh runtime per harness so their global mocks never bleed together.
+                lua = _new_runtime()
+                run = lua.eval(
+                    "function(path, scripts)"
+                    "  local f = assert(loadfile(path))"
+                    "  return f(scripts)"
+                    "end"
+                )
+                return int(run(lua_path(harness), lua_path(SCRIPTS)) or 0)
+
+            print("### main.lua ###")
+            failures = run_harness(HARNESS)
+            print()
+            print("### catalog.lua ###")
+            failures += run_harness(CATALOG_HARNESS)
         finally:
             os.chdir(cwd)
 

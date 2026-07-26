@@ -19,7 +19,11 @@ strings.en = {
 
     -- Global respawn-time slider
     timeTitle = "Respawn time (sec)",
-    timeDesc  = "Cooldown for every resource. Mined deposits, loose pickups and water slugs all come back live, right where they stood — no save reload needed. Stay near the spot and it reappears once this time has passed.",
+    timeDesc  = "Cooldown for every resource. Mined deposits, loose pickups and water slugs all come back live, right where they stood; stay within ~150m of the spot. Note: the lower the value, the more often the mod scans the world (down to every 5s), which can cause small stutters on some PCs. 120s is the sweet spot: fast respawns, and the scan only runs every 10s.",
+
+    -- Refill-on-load toggle
+    refillTitle = "Refill on load",
+    refillDesc  = "Spots emptied in an earlier session, or before this mod was installed, come back about 15s after you get near them, instead of waiting the full respawn time again on every login.",
 
     -- Debug toggle
     debugTitle = "Debug: log resource names",
@@ -27,7 +31,7 @@ strings.en = {
 
     -- Unsupported resources (listed for awareness only)
     unsupportedSuffix = " (unsupported)",
-    unsupportedNote   = "Not supported yet: Mineralized Clinker is a static object the mod cannot reset, so toggling has no effect. ",
+    unsupportedNote   = "Not supported yet: this resource exposes no state the mod can reset, so toggling has no effect. ",
 
     -- Per-resource title + description
     resources = {
@@ -46,7 +50,7 @@ strings.en = {
         ConduitCrystal = { title = "Conduit Crystal", desc = "Bioscanner and Advanced/Entangled Battery. Found below the Karakorum Power Plant." },
         CreatureEnamel = { title = "Creature Enamel", desc = "Enameled Glass. Break Enamel Husks inside the Needler nest." },
         AxumCulture    = { title = "Axum Bacterial Culture", desc = "Builds the Metal Farm. Rarest resource: only ~5 exist and never respawn (this mod overrides that)." },
-        Troilite       = { title = "Troilite",        desc = "Used for Mangalloy ingot and Entangled Power Cell; found at Karakorum Metal Farms and farmable via a Metal Farm." },
+        Troilite       = { title = "Troilite",        desc = "Mineralized Clinker deposits, broken with the Resonator. Used for Mangalloy ingot and Entangled Power Cell; found at Karakorum Metal Farms." },
     },
 }
 

@@ -12,6 +12,13 @@ if cfg.Probe then
     if ok then probe = m else log("probe failed to load (" .. tostring(m) .. ") — continuing without it") end
 end
 
+-- Read-only reflection dump used to identify unsupported resources (see Scripts/catalog.lua).
+local catalog = nil
+if cfg.Catalog then
+    local ok, m = pcall(require, "catalog")
+    if ok then catalog = m else log("catalog failed to load (" .. tostring(m) .. ") — continuing without it") end
+end
+
 math.randomseed(os.time())
 
 -- ===== Resource map =====
@@ -39,9 +46,12 @@ local RESOURCES = {
     { key = "CreatureEnamel", sub = "needleshark", group = "Rare" },  -- node class is "NeedleSharkNeedles"
     -- Special (finite resources that normally never respawn)
     { key = "AxumCulture", sub = "axum",     group = "Special" },  -- node class is "AxumBioprintCulture_Cage"
-    -- Listed for awareness but NOT functional: Troilite's "Mineralized Clinker" is a
-    -- StaticMeshActor (no bHasBeenGathered flag), so the mod cannot reset it.
-    { key = "Troilite",    sub = "troilite", group = "Special", supported = false },
+    -- Troilite's "Mineralized Clinker" is BP_ResourceDeposit_DeepRootResonatableResource_C
+    -- (identified with the catalog probe, 2026-07-26): a real world-pop resource with
+    -- bHasBeenGathered. The old "it is a StaticMeshActor, cannot be reset" note was wrong
+    -- (or predates a game update). If the game reuses this class for other deep
+    -- resonatable deposits, those respawn under this toggle too.
+    { key = "Troilite",    sub = "deeprootresonatable", group = "Special" },
 }
 
 -- Prefix used to make resource toggles look like sub-items of their group slider.
@@ -83,7 +93,7 @@ local function writeRegistration()
         "return {\n",
         '    name = "ResourceRespawn",\n',
         string.format("    display = %q,\n", lang.s("display")),
-        '    version = "2.0.1",\n',
+        '    version = "2.1.0",\n',
         string.format("    description = %q,\n", lang.s("modDescription")),
         "    settings = {\n",
         string.format(
@@ -94,9 +104,16 @@ local function writeRegistration()
     -- One global respawn-time slider for every resource.
     parts[#parts + 1] = string.format(
         '        { key="RespawnSeconds", title=%q, description=%q,'
-        .. ' type="slider", default=300, min=5, max=3600, step=5,'
+        .. ' type="slider", default=120, min=5, max=600, step=5,'
         .. ' format="integer", enabled_by="Enabled" },\n',
         lang.s("timeTitle"), lang.s("timeDesc"))
+
+    -- Right under the slider it modifies: this changes WHEN the timer applies, so it
+    -- belongs next to the timer, not buried under the resource list.
+    parts[#parts + 1] = string.format(
+        '        { key="RefillOnLoad", title=%q, description=%q,'
+        .. ' type="toggle", default=true, enabled_by="Enabled" },\n',
+        lang.s("refillTitle"), lang.s("refillDesc"))
 
     -- Per-resource toggles (flat list, in RESOURCES order).
     for _, r in ipairs(RESOURCES) do
@@ -159,7 +176,7 @@ local function currentSettings()
     local enabled = pick("Enabled", true)
 
     -- Single global respawn time for all resources.
-    local def = cfg.RespawnSeconds or 300
+    local def = cfg.RespawnSeconds or 120
     -- The menu slider hands back a float (300.0). Left as one it reaches string.format's
     -- %d further down, which in Lua 5.4 is an error, not a rounding.
     local seconds = math.floor(tonumber(pick("RespawnSeconds", def)) or def)
@@ -180,9 +197,11 @@ local function currentSettings()
         end
     end
 
-    local debug = pick("DebugListNames", cfg.DebugListNames)
+    local debug  = pick("DebugListNames", cfg.DebugListNames)
+    local refill = pick("RefillOnLoad", cfg.RefillOnLoad ~= false)
 
     settingsCache = { enabled = enabled, active = active, debug = debug,
+                      refillOnLoad = refill,
                       seconds = seconds, fromMenu = saved ~= nil }
     settingsAt = now
     return settingsCache
@@ -218,9 +237,17 @@ local seenNames = {}
 local spawnFailLogged = false
 local ticks = 0   -- full scans performed
 local wakes = 0   -- timer fires, including the ones we skip
+local lastFlaggedCount = 0   -- Verbose only: log when the number of husks in range changes
 
 local NEAR  = 15000   -- 150m; you can only harvest what is close by
 local NEAR2 = NEAR * NEAR
+
+-- Refill-on-load: a flagged node at a spot never seen intact this session was harvested
+-- before the mod could watch it (an earlier session, or before the mod was installed).
+-- It has already served its wait, so it comes back after this grace instead of the full
+-- timer. Requested by Fe1eNinamu24: without it every login means waiting the whole
+-- respawn time again for spots emptied last session.
+local REFILL_GRACE = 15   -- seconds
 
 -- Cache maintenance. The ages are in seconds, not scans, so that changing how often we
 -- scan does not silently change how long a cached position is trusted.
@@ -239,6 +266,7 @@ local PRUNE_STALE   = 300    -- drop an entry that has not been seen for this lo
 local function rawAddr(a)      return a:GetAddress() end
 local function rawLoc(a)       return a:K2_GetActorLocation() end
 local function rawRot(a)       return a:K2_GetActorRotation() end
+local function rawScale(a)     return a:GetActorScale3D() end
 local function rawName(a)      return a:GetClass():GetFName():ToString() end
 local function rawFullName(a)  return a:GetClass():GetFullName() end
 local function rawGathered(a)  return a.bHasBeenGathered end
@@ -371,7 +399,7 @@ local function spawnReplacement(e)
         local xform = kml:MakeTransform(
             { X = e.x, Y = e.y, Z = e.z },
             { Pitch = e.pitch, Yaw = e.yaw, Roll = e.roll },
-            { X = 1.0, Y = 1.0, Z = 1.0 })
+            { X = e.sx or 1.0, Y = e.sy or 1.0, Z = e.sz or 1.0 })
         -- 1 = ESpawnActorCollisionHandlingMethod::AlwaysSpawn
         local a = gs:BeginDeferredActorSpawnFromClass(wco, cls, xform, 1, nil, 0)
         if not a then error("deferred spawn returned nil") end
@@ -475,6 +503,11 @@ end
 local function tick()
     local s = currentSettings()
     if not s.enabled then return end
+
+    -- Diagnostic: read-only catalog runs on EVERY wake (not gated by the scan stride) so a
+    -- dev standing on a resource captures it within one interval instead of waiting a whole
+    -- stride. Dev-only (cfg.Catalog), never on in a release.
+    if catalog then pcall(function() catalog.run(log) end) end
 
     -- Cheapest possible early out: the skipped fires must not touch the engine at all.
     wakes = wakes + 1
@@ -593,10 +626,15 @@ local function tick()
         local rot = try(rawRot, a)
         local cp  = classPath(a)
         if rot and cp then
+            -- Scale matters: the game places some formations (Mineralized Clinker) scaled
+            -- up, and a replacement spawned at 1.0 comes back visibly shrunken. nil is
+            -- fine — the spawn falls back to 1.0.
+            local scl = try(rawScale, a)
             nearIntact[key] = {
                 cn = name, clsPath = cp,
                 x = loc.X, y = loc.Y, z = loc.Z,
                 pitch = rot.Pitch, yaw = rot.Yaw, roll = rot.Roll,
+                sx = scl and scl.X, sy = scl and scl.Y, sz = scl and scl.Z,
                 static = isStaticNode(name),
             }
         end
@@ -607,6 +645,17 @@ local function tick()
         pcall(processNode, a)
     end
     if prof then tLoop = os.clock() - tLoop end
+
+    -- Verbose only: husks (flagged-but-alive nodes) are what refill-on-load feeds on, so
+    -- their count appearing here is the first thing to check when a refill seems dead.
+    if cfg.Verbose then
+        local nf = 0
+        for _ in pairs(flagged) do nf = nf + 1 end
+        if nf ~= lastFlaggedCount then
+            log("flagged husks in range: " .. nf .. " (was " .. lastFlaggedCount .. ")")
+            lastFlaggedCount = nf
+        end
+    end
     local tTail = prof and os.clock() or 0
 
     -- An entry for an actor that no longer turns up in a scan is dead weight: the engine
@@ -639,6 +688,7 @@ local function tick()
                     cn = e.cn, clsPath = e.clsPath, static = e.static,
                     x = e.x, y = e.y, z = e.z,
                     pitch = e.pitch, yaw = e.yaw, roll = e.roll,
+                    sx = e.sx, sy = e.sy, sz = e.sz,
                     due = now + secs,
                 }
                 if cfg.Verbose then
@@ -653,23 +703,42 @@ local function tick()
     --    already on that spot.
     for key, a in pairs(flagged) do
         if not standing[key] and not pending[key] then
-            local loc, rot, cp, name
+            local loc, rot, scl, cp, name
             pcall(function() loc = a:K2_GetActorLocation() end)
             pcall(function() rot = a:K2_GetActorRotation() end)
+            pcall(function() scl = a:GetActorScale3D() end)
             cp   = classPath(a)
             name = className(a)
             if loc and rot and cp and name ~= "" and plausible(loc.X, loc.Y, loc.Z) then
                 local secs = matchSeconds(name, s.active) or 300
+                -- Never seen intact this session = harvested before the mod could watch
+                -- it (earlier session / pre-mod). The game hands those back flagged on
+                -- save load; they have already waited, so give them the grace instead.
+                -- A live harvest is different: its spot is in `watched`, so it still
+                -- pays the full timer.
+                local tag = "[flagged]"
+                if s.refillOnLoad and not watched[key] and secs > REFILL_GRACE then
+                    secs = REFILL_GRACE
+                    tag = "[flagged, refill-on-load]"
+                end
                 pending[key] = {
                     cn = name, clsPath = cp, static = isStaticNode(name),
                     x = loc.X, y = loc.Y, z = loc.Z,
                     pitch = rot.Pitch, yaw = rot.Yaw, roll = rot.Roll,
+                    sx = scl and scl.X, sy = scl and scl.Y, sz = scl and scl.Z,
                     due = now + secs,
                 }
                 if cfg.Verbose then
-                    log(string.format("queued %s at (%.0f, %.0f, %.0f) — back in %ss  [flagged]",
-                        name, loc.X, loc.Y, loc.Z, tostring(secs)))
+                    log(string.format("queued %s at (%.0f, %.0f, %.0f) — back in %ss  %s",
+                        name, loc.X, loc.Y, loc.Z, tostring(secs), tag))
                 end
+            elseif cfg.Verbose then
+                -- A husk we could not queue would otherwise vanish without a trace; this
+                -- is the line that says whether load-restored husks die at this gate.
+                log(string.format("flagged %s DROPPED (loc=%s rot=%s cls=%s)",
+                    name ~= "" and name or "?",
+                    loc and string.format("%.0f,%.0f,%.0f", loc.X, loc.Y, loc.Z) or "nil",
+                    tostring(rot ~= nil), tostring(cp ~= nil)))
             end
         end
     end
@@ -707,6 +776,7 @@ local function tick()
                         cn = e.cn, clsPath = e.clsPath, static = e.static,
                         x = e.x, y = e.y, z = e.z,
                         pitch = e.pitch, yaw = e.yaw, roll = e.roll,
+                        sx = e.sx, sy = e.sy, sz = e.sz,
                         due = now + secs,
                     }
                     if cfg.Verbose then
@@ -756,6 +826,7 @@ local function tick()
                     cn = e.cn, clsPath = e.clsPath, static = e.static,
                     x = e.x, y = e.y, z = e.z,
                     pitch = e.pitch, yaw = e.yaw, roll = e.roll,
+                    sx = e.sx, sy = e.sy, sz = e.sz,
                 }
                 watched[key] = snapshot[key]
             else
@@ -783,7 +854,7 @@ end)
 
 local how = hasModSettings and "SN2ModSettings detected — adjust in the in-game menu"
                            or  "using config.lua — SN2ModSettings not found"
-log("ready v2.0.1 (lang=" .. lang.code .. ", " .. how .. ")")
+log("ready v2.1.0 (lang=" .. lang.code .. ", " .. how .. ")")
 
 do  -- report the settings actually in effect, so a stale menu value is never a mystery
     local s = currentSettings()

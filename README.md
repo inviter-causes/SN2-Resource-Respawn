@@ -42,14 +42,17 @@ Three constraints shape the implementation, each learned the hard way:
   registered with the game's world-population system, so the game never sets
   `bHasBeenGathered` on them. Watching for the node to be *gone* works for both.
 
-One global respawn-time slider (5s–60min) applies to every resource, plus a per-resource
-on/off toggle. Supported resources:
+One global respawn-time slider (5s–10min, default 120s) applies to every resource, plus a
+per-resource on/off toggle and a **Refill on load** toggle: spots emptied in an earlier
+session (or before the mod was installed) come back ~15s after you get near them, instead
+of waiting the full timer again on every login. Supported resources:
 
 Titanium, Copper, Quartz, Salt, Water Slug, Lead, Silver, Sulfur, Gold, Lithium,
-Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture.
+Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture, Troilite.
 
 > Some node class names differ from the item they yield: Conduit Crystal node =
-> `Fulgurite`, Creature Enamel node = `NeedleSharkNeedles`, Axum = `AxumBioprintCulture_Cage`.
+> `Fulgurite`, Creature Enamel node = `NeedleSharkNeedles`, Axum = `AxumBioprintCulture_Cage`,
+> Troilite's Mineralized Clinker = `DeepRootResonatableResource`.
 > Lithium is matched as `lithium_` to skip the Clamthulu-only "Lithium Pearl".
 
 ## Known limitations
@@ -61,8 +64,8 @@ Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture.
   them — but on load the mod sees the spot is empty and refills it anyway.
 - **Co-op.** Spawning is local and does not replicate; every player needs the mod with
   the same settings, and deposit respawn is unverified in co-op.
-- **Troilite.** Its "Mineralized Clinker" is a `StaticMeshActor` with no gathered state
-  to read; listed in the menu as `(unsupported)`.
+- **Yield.** A respawned node rolls its own yield, so the piece count can differ from
+  the original node's. That roll belongs to the game's blueprint, not the mod.
 
 ## Configuration
 

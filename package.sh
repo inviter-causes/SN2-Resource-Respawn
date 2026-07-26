@@ -34,9 +34,9 @@ for f in "${FILES[@]}"; do
 done
 
 # Refuse to ship with a diagnostic left switched on.
-if grep -qE '^\s*(Probe|Verbose|DeepScan|DebugListNames|Profile)\s*=\s*true' "$ROOT/ResourceRespawn/Scripts/config.lua"; then
+if grep -qE '^\s*(Probe|Catalog|Verbose|DeepScan|DebugListNames|Profile)\s*=\s*true' "$ROOT/ResourceRespawn/Scripts/config.lua"; then
     echo "refusing to package: a diagnostic flag is still true in config.lua"
-    grep -nE '^\s*(Probe|Verbose|DeepScan|DebugListNames|Profile)\s*=\s*true' "$ROOT/ResourceRespawn/Scripts/config.lua"
+    grep -nE '^\s*(Probe|Catalog|Verbose|DeepScan|DebugListNames|Profile)\s*=\s*true' "$ROOT/ResourceRespawn/Scripts/config.lua"
     exit 1
 fi
 
