@@ -1,0 +1,21 @@
+# Working tree is LF on EVERY OS. This repo travels between Mac and Windows
+# (exFAT external drive, multiple machines); without this, a Windows checkout
+# rewrites every file to CRLF and git reports all-modified with zero real
+# changes — which already cost one debugging round on 2026-07-27.
+* text=auto eol=lf
+
+# Binary — never touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.mov binary
+*.mp4 binary
+*.MP4 binary
+*.MOV binary
+*.zip binary
+*.docx binary
+*.pdf binary
+*.ttf binary
+*.psd binary
+*.pages binary
