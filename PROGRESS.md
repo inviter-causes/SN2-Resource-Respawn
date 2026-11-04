@@ -11,11 +11,20 @@ Last updated: 2026-11-04
 - **Tests:** 76 mock tests green (38 main, 35 catalog, 3 for config.lua as Mod Manager
   sees it). A mutation check (client gate switched off) makes the 5 co-op tests fail, so
   they really bite.
-- **Not verified:** nothing has run in the real game yet. UE4SS isn't installed on this
-  PC. Before upload: install UE4SS d7e7826d, run `./deploy.sh`, then check single-player
-  still respawns, and that UE4SS Mod Manager's Configure window lists the 19 settings.
+- **Installed on this PC (2026-11-04):** UE4SS `UE4SS_v3.0.1-1028-gd7e7826d.zip`, from the
+  official UE4SS-RE GitHub "experimental" release. That is the same commit Nexus mods/36
+  ships, and its file list and sizes match the Nexus preview. SHA-256 `342d893c...c2c0b`.
+  It was extracted into `A:\SteamLibrary\...\Binaries\Win64`, and `./deploy.sh` put 2.1.1
+  in `ue4ss\Mods\ResourceRespawn`. Its UEHelpers has `GetAllPlayers` (via
+  GameState.PlayerArray → PawnPrivate) and `GetKismetSystemLibrary`, and
+  `GetWorldContextObject` returns the UWorld. All three match what 2.1.1 assumes.
+- **Not verified:** the game has not been launched yet. Next: launch, load a save, check
+  `ue4ss\UE4SS.log` for `ready v2.1.1` and for errors, confirm single-player still
+  respawns, and confirm UE4SS Mod Manager's Configure window lists the 19 settings.
   Ideally also one co-op session on two PCs, to confirm the host's spawned deposit shows
   up for the client and can be mined.
+- **`lang_local.lua` (personal Thai menu text) is gone:** it lived only in the old game
+  folder on C:, which no longer exists, and it was never in git. Not needed for release.
 - **`NEXUS.txt` is staged for 2.1.1** and no longer mirrors the live page until Bon
   uploads. Holding replies to modsyouknow / Fe1eNinamu24 plus a general post were drafted
   in chat on 2026-11-04 (Trussel card SUB-4466).
