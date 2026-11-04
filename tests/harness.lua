@@ -735,6 +735,38 @@ check("trace reports a replacement the engine removed",
 cfgT.Trace = ""
 
 --------------------------------------------------------------------------------
+-- 16. Switching a resource off is not a harvest
+--------------------------------------------------------------------------------
+-- Seen in the 2026-11-04 menu test: Titanium OFF made every standing Titanium node look
+-- harvested and queued. Had it stayed off until they came due, each would have had a
+-- second node spawned on top of it.
+section("16. switching a resource off is not a harvest")
+
+quiesce()
+local ti16 = addNode("BP_ResourceDeposit_Titanium", 6300, 0, 0, false)
+tick()                                    -- seen standing, in the snapshot
+local function writeSavedRaw(body)
+    local f = assert(realopen(SAVED_PATH, "w")) f:write(body) f:close()
+end
+writeSavedRaw("return { Enabled = true, RespawnSeconds = 15, Titanium = false }\n")
+CLOCK.t = CLOCK.t + 60                    -- settings TTL: the OFF is picked up
+tick(4)
+CLOCK.t = CLOCK.t + 60
+tick(4)
+check("no node stacked on a standing node of a switched-off resource", spawnsAt(6300) == 0,
+      spawnsAt(6300) .. " spawns while the node was still there")
+check("the node itself is untouched", ti16.__alive == true, "node was destroyed")
+writeSaved(15)                            -- back on (Titanium = true)
+CLOCK.t = CLOCK.t + 60
+tick(2)
+removeNode(ti16)
+tick()
+CLOCK.t = CLOCK.t + 16
+tick(2)
+check("after switching it back on, a real harvest still respawns", spawnsAt(6300) == 1,
+      spawnsAt(6300) .. " spawns")
+
+--------------------------------------------------------------------------------
 section("summary")
 realprint(string.format("  %d passed, %d failed", passes, failures))
 

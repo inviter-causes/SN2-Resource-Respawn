@@ -12,6 +12,8 @@
   respawns once you are back near it, and a refused respawn is retried instead of dropped
 - Fixed a rare case where a freshly respawned node was missed by the mod and a second
   copy got stacked on top of it
+- Switching a resource off no longer makes the mod treat its standing nodes as
+  harvested. Before, leaving it off long enough could stack a second node on each one
 - Easier to configure now that Mod Settings has left Nexus. Every setting in `config.lua`,
   including each resource toggle, is on its own line with a description, so
   UE4SS Mod Manager's "Configure mod" button can edit all of it. Developer options moved

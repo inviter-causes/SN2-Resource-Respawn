@@ -78,6 +78,16 @@ cage or the mod failed to see it.
   (removed already)`. That separates "the game deleted it" from "we missed it".
 - The harness's spawn mock now returns a real mock actor (its own address, can reuse
   `world.recycleAddr`) and puts it into the world. 89 tests green.
+- **Why that log was missing lines** (reported by the settings session): a second game
+  instance started while the first was running (`steam://rungameid`), and it overwrote
+  the head of `UE4SS.log`. Lines 1-48 of that file are from the second instance. Only
+  trust a log from a single clean game launch, read after the game exits.
+- **Toggle bug fixed (from the same run):** switching a resource OFF in the menu drops its
+  nodes from `standing`, so the snapshot check queued every intact one as "harvested". If
+  it was still OFF when they came due, the pending loop (which ignored the enabled list)
+  would spawn a second node on top of each. Now the snapshot check skips disabled
+  resources, and the pending loop drops entries whose resource is off. Test: section 16;
+  the mutation check bites. 92 tests green.
 - The settings session's compat folder `ue4ss/Mods/SN2ModSettings/enabled.txt` makes RR
   read `SN2ModSettings/saved/ResourceRespawn.lua` whenever it exists, overriding
   config.lua. That is why the 15:02 run briefly used 120s.

@@ -873,7 +873,10 @@ local function tick()
     --    the game never flags those as gathered.
     local cooldown = s.active[1] and s.active[1].seconds or nil
     for key, e in pairs(snapshot) do
-        if not standing[key] and not pending[key] then
+        -- A resource just switched OFF in the menu drops out of `standing` (the scan only
+        -- counts enabled resources), so all its intact nodes would look "harvested" here.
+        -- Not a harvest: skip anything that is no longer enabled.
+        if not standing[key] and not pending[key] and matchSeconds(e.cn, s.active) then
             -- It could also have vanished because the area streamed out. Only count it as
             -- a harvest if the player is still standing next to the spot.
             local secs = cooldown or 300
@@ -988,6 +991,13 @@ local function tick()
     local spawnBudget = 3
 
     for key, e in pairs(pending) do
+      -- Resource switched OFF while this spot was queued: drop it. While it is off its
+      -- nodes are not counted as standing, so firing would stack a second node on top of
+      -- one that is still there.
+      if not matchSeconds(e.cn, s.active) then
+        pending[key] = nil
+        if cfg.Verbose then log("dropped " .. e.cn .. " from the queue — resource switched off") end
+      else
         -- Only act on a spot a player is next to, and only once that area has had a scan
         -- to settle. A spot nobody is near is usually streamed out: the 2026-11-04 trace
         -- showed spawns there coming back invalid, and its husk (if any) is not in view
@@ -1059,6 +1069,7 @@ local function tick()
             end
             if settled then pending[key] = nil end
         end
+      end
     end
 
     if prof then
