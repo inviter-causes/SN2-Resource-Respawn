@@ -60,5 +60,6 @@ return {
         Catalog          = false,  -- dump nearby actors' class + properties (see Scripts/catalog.lua)
         Verbose          = false,  -- log each queue/respawn to UE4SS.log
         Profile          = false,  -- log where each scan spends its time (chasing hitches)
+        Trace            = "",     -- class-name substring, e.g. "axum": log every state change of those actors
     },
 }

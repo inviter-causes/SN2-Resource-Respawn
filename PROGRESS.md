@@ -34,6 +34,37 @@ Last updated: 2026-11-04
 - **Command center `STATUS.md`:** `../Bon-Skill-Manager` is not on this PC, so it is not
   updated. Do it at release time.
 
+## Open bug: Axum culture vanishes after respawning (SUB-4488)
+
+Fe1eNinamu24 reported this on Nexus at 2026-11-04 14:12. They harvest the culture, wait out
+the timer, and when they get close it's gone, in solo and in co-op alike. Axum is
+`AxumBioprintCulture_Cage`, which is not a `resourcedeposit`/`resourcenode`, so
+`static = false`: the mod restores it in place (`bringBack`: new random ResourceId, clear
+the flag, OnRep) whenever the husk is in view, and spawns a fresh one otherwise.
+
+Two hypotheses, not yet confirmed:
+1. **The timer fires while the player is far away.** The pending loop fires on time
+   regardless of distance. With the husk out of view it spawns a new cage into an area
+   that isn't loaded, while the old gathered cage still exists. On return, both stream in
+   at the same spot. Candidate fix: only fire a due entry once a player is near the spot
+   AND has been near on two scans in a row (area settled). That way the real husk is in
+   view and gets restored in place, instead of a duplicate being spawned.
+2. **Clearing the flag in place leaves the cage empty.** If the cage uses its ResourceId
+   to decide its contents, `newGuid()` would leave it empty.
+
+**Diagnostics added (dev only, off in releases):** `Dev.Trace = "axum"` logs `TRACE
+seen/change/gone` per actor address. Verbose now logs the new address of each spawned or
+restored actor, plus `due: spawning ... (player near the spot, husk in view)`.
+`package.sh` refuses to build with Trace set.
+
+**The game copy is in TEST mode right now:** `RespawnSeconds = 30`, `Verbose = true`,
+`Trace = "axum"`, all marked `-- TEST (Axum bug)` in the deployed `config.lua`. The repo
+copy is clean. Restore the game copy by running `./deploy.sh` after the test.
+
+Test for Bon. Scenario A: harvest and stay within 100m for 1 minute. Scenario B: harvest,
+swim more than 200m away for 1 minute, then come back. Note in each case whether the culture
+is there and can be harvested, then read `ue4ss/UE4SS.log`.
+
 ## What changed in 2.1.1
 
 - **Co-op:** `isNetClient()` asks `UEHelpers.GetKismetSystemLibrary():IsServer(world)`.

@@ -581,6 +581,39 @@ check("old layout leaves the others on", spawnsAt(4900) == 1,
 cfgT.Copper, cfgT.Resources = true, nil
 
 --------------------------------------------------------------------------------
+-- 13. Dev.Trace logs an actor's life by address (diagnostic for the Axum report)
+--------------------------------------------------------------------------------
+section("13. Dev.Trace")
+
+quiesce()
+local function logsMatching(pat)
+    local n = 0
+    for _, l in ipairs(logs) do if l:find(pat, 1, true) then n = n + 1 end end
+    return n
+end
+local before13 = { seen = logsMatching("TRACE seen"), change = logsMatching("TRACE change"),
+                   gone = logsMatching("TRACE gone") }
+cfgT.Trace = "axum"
+local cage = addNode("BP_AxumBioprintCulture_Cage", 5100, 0, 0, false)
+addNode("BP_ResourceDeposit_Titanium", 5300, 0, 0, false)   -- not traced
+tick()
+check("trace logs the cage when first seen", logsMatching("TRACE seen") == before13.seen + 1,
+      logsMatching("TRACE seen") - before13.seen)
+cage.bHasBeenGathered = true                                 -- the culture is taken
+tick()
+check("trace logs the state change", logsMatching("TRACE change") == before13.change + 1,
+      logsMatching("TRACE change") - before13.change)
+removeNode(cage)
+tick()
+check("trace logs the cage going away", logsMatching("TRACE gone") == before13.gone + 1,
+      logsMatching("TRACE gone") - before13.gone)
+tick(2)
+check("an unchanged world logs nothing more",
+      logsMatching("TRACE seen") == before13.seen + 1 and logsMatching("TRACE change") == before13.change + 1,
+      "extra trace lines")
+cfgT.Trace = ""
+
+--------------------------------------------------------------------------------
 section("summary")
 realprint(string.format("  %d passed, %d failed", passes, failures))
 

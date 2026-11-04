@@ -40,6 +40,12 @@ if grep -qE '^\s*(Probe|Catalog|Verbose|DeepScan|DebugListNames|Profile)\s*=\s*t
     exit 1
 fi
 
+if grep -qE '^\s*Trace\s*=\s*"[^"]+"' "$ROOT/ResourceRespawn/Scripts/config.lua"; then
+    echo "refusing to package: Trace is still set in config.lua"
+    grep -nE '^\s*Trace\s*=' "$ROOT/ResourceRespawn/Scripts/config.lua"
+    exit 1
+fi
+
 # Sanity: the version the mod reports must match the one being packaged. Shipping a zip
 # labelled 2.0.0 that announces itself as 1.1.0 in the log is a support nightmare.
 if ! grep -q "version = \"$VERSION\"" "$ROOT/ResourceRespawn/Scripts/main.lua" \

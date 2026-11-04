@@ -260,6 +260,13 @@ local wakes = 0   -- timer fires, including the ones we skip
 local lastFlaggedCount = 0   -- Verbose only: log when the number of husks in range changes
 local clientMode = false     -- true while this machine is a client in someone else's game
 
+-- Dev.Trace = "axum" (any class-name substring) logs every state change of the matching
+-- actors in range: seen / changed / gone, by actor address, plus the address of each
+-- replacement the mod spawns or restores. Added to chase "Axum culture vanishes after
+-- respawning" (Fe1eNinamu24, 2026-11-04). Off (nil) in releases.
+local traceSub   -- refreshed from cfg.Trace at the start of every scan
+local traceNow, traceLast = {}, {}
+
 local NEAR  = 15000   -- 150m; you can only harvest what is close by
 local NEAR2 = NEAR * NEAR
 
@@ -501,7 +508,10 @@ local function spawnReplacement(e)
         return false
     end
 
-    if cfg.Verbose then log("respawned " .. e.cn) end
+    if cfg.Verbose then
+        log(string.format("respawned %s at (%.0f, %.0f, %.0f) new addr=%s",
+            e.cn, e.x, e.y, e.z, tostring(try(rawAddr, spawned))))
+    end
     return true
 end
 
@@ -614,6 +624,8 @@ local function tick()
         log("hosting or playing solo: respawns active")
     end
 
+    traceSub = (type(cfg.Trace) == "string" and cfg.Trace ~= "") and cfg.Trace:lower() or nil
+
     if cfg.DeepScan then pcall(deepScan) end
 
     local now = os.time()
@@ -704,6 +716,21 @@ local function tick()
 
         -- Within reach: now it is worth the reflection calls.
         local gathered, destroyed, valid = nodeState(a)
+
+        -- Dev.Trace: record every in-range actor whose class matches, dying ones included,
+        -- keyed by ADDRESS. Two actors can share one spot (a husk and its replacement), so
+        -- the spot key alone would hide exactly the case being chased.
+        if traceSub then
+            local tn = className(a)
+            if tn:lower():find(traceSub, 1, true) then
+                traceNow[addr] = {
+                    spot = keyOf(tn, at.x, at.y, at.z), x = at.x, y = at.y, z = at.z,
+                    state = string.format("gathered=%s destroyed=%s valid=%s",
+                        tostring(gathered), tostring(destroyed), tostring(valid)),
+                }
+            end
+        end
+
         if valid == false or destroyed == true then return end
 
         local name = className(a)
@@ -751,6 +778,26 @@ local function tick()
         pcall(processNode, a)
     end
     if prof then tLoop = os.clock() - tLoop end
+
+    -- Dev.Trace: log what changed since the last scan, one line per actor.
+    if traceSub then
+        for addr, t in pairs(traceNow) do
+            local was = traceLast[addr]
+            if not was then
+                log(string.format("TRACE seen   %s addr=%s %s", t.spot, tostring(addr), t.state))
+            elseif was.state ~= t.state then
+                log(string.format("TRACE change %s addr=%s %s (was %s)",
+                    t.spot, tostring(addr), t.state, was.state))
+            end
+        end
+        for addr, t in pairs(traceLast) do
+            if not traceNow[addr] then
+                log(string.format("TRACE gone   %s addr=%s (spot in range of a player: %s)",
+                    t.spot, tostring(addr), tostring(isNear(t.x, t.y, t.z))))
+            end
+        end
+        traceLast, traceNow = traceNow, {}
+    end
 
     -- Verbose only: husks (flagged-but-alive nodes) are what refill-on-load feeds on, so
     -- their count appearing here is the first thing to check when a refill seems dead.
@@ -903,12 +950,19 @@ local function tick()
             elseif not e.static and flagged[key] then
                 -- Alive, just flagged: clearing the flag is enough, and cheaper.
                 pcall(bringBack, flagged[key])
-                if cfg.Verbose then log("restored " .. e.cn .. " in place") end
+                if cfg.Verbose then
+                    log(string.format("restored %s in place addr=%s", e.cn,
+                        tostring(try(rawAddr, flagged[key]))))
+                end
             elseif spawnBudget > 0 then
                 spawnBudget = spawnBudget - 1
                 -- Clear the harvested husk off the spot before putting a new node on it.
                 -- Without this every cycle leaves another gathered-but-undestroyed actor
                 -- stacked at the same coordinates.
+                if cfg.Verbose then
+                    log(string.format("due: spawning %s (player near the spot: %s, husk in view: %s)",
+                        e.cn, tostring(isNear(e.x, e.y, e.z)), tostring(flagged[key] ~= nil)))
+                end
                 if flagged[key] then
                     pcall(function() flagged[key]:K2_DestroyActor() end)
                 end
