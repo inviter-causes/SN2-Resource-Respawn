@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.1
+
+- Fixed co-op: a second player no longer sees a duplicate resource node that can't be
+  mined. Only the host's copy of the mod respawns resources now, and every player sees
+  that one node. A client's copy of the mod stays idle
+- In co-op the host also respawns spots near the other players, not only near the host
+- Easier to configure now that Mod Settings has left Nexus. Every setting in `config.lua`,
+  including each resource toggle, is on its own line with a description, so
+  UE4SS Mod Manager's "Configure mod" button can edit all of it. Developer options moved
+  into a separate `Dev` section
+- Older `config.lua` files from 2.1.0 still work
+- New `Enabled` master switch in `config.lua`
+
 ## 2.1.0
 
 - Troilite now respawns. Its Mineralized Clinker turned out to be a real resource node

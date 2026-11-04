@@ -1,49 +1,64 @@
--- ResourceRespawn config (defaults / used when SN2ModSettings is absent)
+-- ResourceRespawn settings
 --
--- If SN2ModSettings is installed -> adjust everything from the in-game menu.
--- No need to edit this file (menu values override it).
+-- How to change them:
+--   * UE4SS Mod Manager (Nexus mod 34): click "Configure mod" next to ResourceRespawn.
+--   * By hand: edit the values below in Notepad, save, then restart the game.
+--   * SN2ModSettings, if you still have it installed: its in-game menu overrides this file.
 --
--- If SN2ModSettings is absent -> the mod reads its values from here.
+-- Keep each setting on its own line, with its description in the comment line right
+-- above it. That is the layout UE4SS Mod Manager reads.
 return {
-    CheckIntervalMs  = 5000,     -- how often to scan (ms); 5000 so the 5s minimum respawn time is responsive
-    DebugListNames   = false,    -- true = print every resource class name to the log
-    DeepScan         = false,    -- diagnostic: log the nearest actors to the player (off; only for finding new resource classes)
-    Probe            = false,    -- diagnostic: reflection dump / spawn experiment (dev only; see Scripts/probe.lua)
-    Catalog          = false,    -- diagnostic: dump nearby actors' class + properties (dev only; identify unsupported resources; see Scripts/catalog.lua)
-    Verbose          = false,    -- log each queue/respawn to UE4SS.log (dev only)
-    Profile          = false,    -- diagnostic: log where each scan spends its time (for chasing hitches)
+    -- Master switch. false = the mod does nothing.
+    Enabled = true,
 
-    -- Spots emptied in an earlier session (or before the mod was installed) refill about
-    -- 15s after you come near them, instead of waiting the full respawn time again.
-    RefillOnLoad = true,
-
-    -- Global respawn time (seconds) applied to every resource.
-    -- Overridden by the in-game slider (min 5, max 600, step 5).
-    -- 120 is the recommended default: fast enough to feel alive, and the scan runs only
-    -- every 10s at this setting. Below ~50s the scan drops to every 5s (heavier).
+    -- Respawn time in seconds for every resource (5 to 600). 120 is a good default. Below about 50 the mod scans every 5s, which costs a little more performance.
     RespawnSeconds = 120,
 
-    -- Enable/disable each resource (true = respawn it)
-    Resources = {
-        -- Common
-        Titanium       = true,
-        Copper         = true,
-        Quartz         = true,
-        Salt           = true,
-        WaterSlug      = true,
-        -- Medium
-        Lead           = true,
-        Silver         = true,
-        Sulfur         = true,
-        Gold           = true,
-        Lithium        = true,   -- excludes LithiumPearl (Clamthulu)
-        -- Rare
-        Atacamite      = true,
-        Celestine      = true,
-        ConduitCrystal = true,   -- node class is "Fulgurite"
-        CreatureEnamel = true,   -- node class is "NeedleSharkNeedles"
-        -- Special (finite)
-        AxumCulture    = true,   -- only 5 in game, normally never respawns
-        Troilite       = true,   -- Mineralized Clinker; node class is "DeepRootResonatableResource"
+    -- Refill on load: spots emptied in an earlier session (or before installing the mod) come back about 15s after you get near them, instead of waiting the full respawn time again.
+    RefillOnLoad = true,
+
+    -- Titanium (true = respawns)
+    Titanium = true,
+    -- Copper
+    Copper = true,
+    -- Quartz
+    Quartz = true,
+    -- Salt
+    Salt = true,
+    -- Water Slug
+    WaterSlug = true,
+    -- Lead
+    Lead = true,
+    -- Silver
+    Silver = true,
+    -- Sulfur
+    Sulfur = true,
+    -- Gold
+    Gold = true,
+    -- Lithium (not the Clamthulu Lithium Pearl)
+    Lithium = true,
+    -- Atacamite
+    Atacamite = true,
+    -- Celestine
+    Celestine = true,
+    -- Conduit Crystal (node name: Fulgurite)
+    ConduitCrystal = true,
+    -- Creature Enamel (node name: NeedleSharkNeedles)
+    CreatureEnamel = true,
+    -- Axum Bacterial Culture (only 5 in the game, normally never respawns)
+    AxumCulture = true,
+    -- Troilite (Mineralized Clinker)
+    Troilite = true,
+
+    -- Developer / diagnostic options. Leave these alone unless you are chasing a bug.
+    -- They sit in a nested table on purpose, so UE4SS Mod Manager does not list them.
+    Dev = {
+        CheckIntervalMs  = 5000,   -- how often the mod wakes up (ms)
+        DebugListNames   = false,  -- print every resource class name to the log
+        DeepScan         = false,  -- log the actors nearest the player (finding new resource classes)
+        Probe            = false,  -- reflection dump / spawn experiment (see Scripts/probe.lua)
+        Catalog          = false,  -- dump nearby actors' class + properties (see Scripts/catalog.lua)
+        Verbose          = false,  -- log each queue/respawn to UE4SS.log
+        Profile          = false,  -- log where each scan spends its time (chasing hitches)
     },
 }

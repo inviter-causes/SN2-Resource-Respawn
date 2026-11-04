@@ -59,6 +59,52 @@ SAVED = """return {
 """
 
 
+def check_mod_manager_view() -> int:
+    """What UE4SS Mod Manager's "Configure mod" window would list for config.lua.
+
+    Since SN2ModSettings left Nexus, that window is the easy way to configure the mod. It
+    only edits top-level scalar lines of the returned table (depth 1), takes its
+    description from the comment line directly above, and skips nested tables. This
+    mirrors those rules (AtilioA/UE4SS-mod-manager, src/common/config.py) closely enough to
+    catch a toggle sliding into a nested table or losing its description.
+    """
+    import re
+    assign = re.compile(r"^\s*([A-Za-z_]\w*)\s*=\s*(true|false|[+-]?\d+(?:\.\d+)?)\s*,?\s*(--.*)?$")
+    depth, prev_comment, seen = 0, None, {}
+    for line in (SCRIPTS / "config.lua").read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if depth == 1:
+            if stripped.startswith("--"):
+                prev_comment = stripped[2:].strip()
+            else:
+                m = assign.match(line)
+                if m:
+                    seen[m.group(1)] = prev_comment
+                prev_comment = None
+        code = line.split("--", 1)[0]
+        depth = max(depth + code.count("{") - code.count("}"), 0)
+
+    expected = {"Enabled", "RespawnSeconds", "RefillOnLoad", "Titanium", "Copper", "Quartz",
+                "Salt", "WaterSlug", "Lead", "Silver", "Sulfur", "Gold", "Lithium",
+                "Atacamite", "Celestine", "ConduitCrystal", "CreatureEnamel", "AxumCulture",
+                "Troilite"}
+    failures = 0
+
+    def check(name, ok, detail=""):
+        nonlocal failures
+        print(f"  {'PASS' if ok else 'FAIL'}  {name}" + ("" if ok else f"   ({detail})"))
+        if not ok:
+            failures += 1
+
+    check("Mod Manager lists every player setting", expected <= set(seen),
+          sorted(expected - set(seen)))
+    check("Mod Manager lists no developer flags", set(seen) <= expected,
+          sorted(set(seen) - expected))
+    check("every listed setting has a description",
+          all(seen.get(k) for k in expected), [k for k in expected if not seen.get(k)])
+    return failures
+
+
 def lua_path(p: Path) -> str:
     return str(p).replace("\\", "/")
 
@@ -93,6 +139,9 @@ def main() -> int:
             print()
             print("### catalog.lua ###")
             failures += run_harness(CATALOG_HARNESS)
+            print()
+            print("### config.lua as UE4SS Mod Manager sees it ###")
+            failures += check_mod_manager_view()
         finally:
             os.chdir(cwd)
 

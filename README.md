@@ -3,8 +3,10 @@
 A UE4SS Lua mod for **Subnautica 2** that makes gathered resources come back after a
 cooldown you control. Inspired by
 [SlugRespawn](https://www.nexusmods.com/subnautica2/mods/269), generalized to many
-harvestable resources and configurable in-game via
-[SN2ModSettings](https://www.nexusmods.com/subnautica2/mods/20).
+harvestable resources. Configure it through `config.lua`, by hand or with
+[UE4SS Mod Manager](https://www.nexusmods.com/subnautica2/mods/34)'s "Configure mod"
+button. The in-game menu from SN2ModSettings still works for anyone who has it, but that
+mod has been removed from Nexus.
 
 ## What it does
 
@@ -62,16 +64,27 @@ Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture, 
   hitched the frame. A node harvested and then abandoned respawns when you return.
 - **Respawned nodes are not saved.** They are spawned at runtime, so a save reload drops
   them — but on load the mod sees the spot is empty and refills it anyway.
-- **Co-op.** Spawning is local and does not replicate; every player needs the mod with
-  the same settings, and deposit respawn is unverified in co-op.
+- **Co-op.** Only the host's copy of the mod acts (`KismetSystemLibrary:IsServer`). A
+  node the host spawns replicates to every player, but a node a client spawned existed
+  only on that client and could not be mined. That was the 2.1.0 "duplicate node that
+  won't break" bug. The host measures range from every player's pawn
+  (`UEHelpers.GetAllPlayers`), so spots near a friend respawn too. A client with the mod
+  installed simply idles. Still to verify in a real two-PC session: that the host's
+  spawned deposit really shows up for clients.
 - **Yield.** A respawned node rolls its own yield, so the piece count can differ from
   the original node's. That roll belongs to the game's blueprint, not the mod.
 
 ## Configuration
 
-- **With SN2ModSettings installed:** open Settings → Mods → Resource Respawn in-game.
-  The mod self-registers its menu at startup.
-- **Without it:** edit `ResourceRespawn/Scripts/config.lua`.
+- **`ResourceRespawn/Scripts/config.lua`** is the main way to configure the mod (restart the
+  game after a change). Every player setting, each resource toggle included, is a
+  top-level line with its description in the comment directly above it. That is exactly
+  what UE4SS Mod Manager's "Configure mod" window can list and edit: it reads top-level
+  scalars only and skips nested tables. Developer flags therefore live in a nested
+  `Dev = { ... }` table. The 2.1.0 layout (nested `Resources = {}`, flags at top level)
+  is still honoured. `tests/run.py` checks the Mod Manager view.
+- **SN2ModSettings** (removed from Nexus by its author): if it is still installed, the mod
+  registers its in-game menu at startup, and the menu values override `config.lua`.
 
 ## Localization
 

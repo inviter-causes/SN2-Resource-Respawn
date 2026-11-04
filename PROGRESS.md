@@ -2,9 +2,52 @@
 
 Last updated: 2026-11-04
 
-## Current state: v2.1.0 fully released
+## Current state: v2.1.1 built, NOT released (needs an in-game test first)
 
-- **GitHub:** commit `f571157` + `db2eaa0`, tag `v2.1.0`, pushed. Working tree clean.
+- **Code:** v2.1.1 committed and pushed on `main`. **No tag yet.** Tag `v2.1.1` only once
+  Bon has uploaded it.
+- **Zip:** `ResourceRespawn-2.1.1.zip` was built in the repo root by `./package.sh 2.1.1`.
+  It is git-ignored; rebuild with the same command if it is missing.
+- **Tests:** 76 mock tests green (38 main, 35 catalog, 3 for config.lua as Mod Manager
+  sees it). A mutation check (client gate switched off) makes the 5 co-op tests fail, so
+  they really bite.
+- **Not verified:** nothing has run in the real game yet. UE4SS isn't installed on this
+  PC. Before upload: install UE4SS d7e7826d, run `./deploy.sh`, then check single-player
+  still respawns, and that UE4SS Mod Manager's Configure window lists the 19 settings.
+  Ideally also one co-op session on two PCs, to confirm the host's spawned deposit shows
+  up for the client and can be mined.
+- **`NEXUS.txt` is staged for 2.1.1** and no longer mirrors the live page until Bon
+  uploads. Holding replies to modsyouknow / Fe1eNinamu24 plus a general post were drafted
+  in chat on 2026-11-04 (Trussel card SUB-4466).
+- **Trussel:** work is now tracked on the KBEONN board Subnautica > Resource Respawn
+  (SUB-4458..4467, history backfilled with real dates). Bon asked for every job to get a
+  card there, dated the day it is finished.
+- **Command center `STATUS.md`:** `../Bon-Skill-Manager` is not on this PC, so it is not
+  updated. Do it at release time.
+
+## What changed in 2.1.1
+
+- **Co-op:** `isNetClient()` asks `UEHelpers.GetKismetSystemLibrary():IsServer(world)`.
+  On a client, `tick` returns before scanning and drops `snapshot` / `pending` /
+  `watched`, so nothing fires later back in single player. If the question can't be
+  answered, it assumes not-a-client, which keeps solo behaviour unchanged.
+- **Range from every player:** `playerPositions()` uses `UEHelpers.GetAllPlayers()` (the
+  game state's player list, cheap; no extra FindAllOf walk) and falls back to the local
+  player. All three distance checks go through `isNear`.
+- **config.lua:** player settings and the 16 resource toggles are top-level, each with a
+  one-line comment directly above it. Dev flags moved into `Dev = {}`, which main.lua
+  lifts onto `cfg`. The old nested `Resources = {}` still works via `cfgResource()`. New
+  `Enabled` master switch.
+- **deploy.sh:** tries the `A:\SteamLibrary` path first, warns when UE4SS is missing, and
+  exits 1 when nothing was deployed.
+- **This PC:** Python 3.12 was installed with winget (user scope) at
+  `C:\Users\Bon\AppData\Local\Programs\Python\Python312`, with `lupa` installed via pip.
+  It is not on Git Bash's PATH. Use the full path, or
+  `PATH="/c/Users/Bon/AppData/Local/Programs/Python/Python312:$PATH" ./package.sh 2.1.1`.
+
+## Previous: v2.1.0 fully released
+
+- **GitHub:** commit `f571157` + `db2eaa0`, tag `v2.1.0`, pushed.
 - **Nexus (mod 420):** verified live 2026-07-28 — version field 2.1.0, new zip uploaded,
   description and short description updated, changelog posted, 2.1.0 comment pinned,
   replies to Fe1eNinamu24 and Pippymint posted, requirements note fixed.
@@ -19,9 +62,9 @@ Last updated: 2026-11-04
 - Respawned nodes keep their original scale
 - Slider retuned: 5s–10min, default 120s; scan-cost note in the menu (EN + Thai via lang_local)
 
-## 2026-11-04 triage (nothing shipped yet)
+## 2026-11-04 triage (led to 2.1.1)
 
-Two new Nexus comments. Holding replies drafted for Bon to post; no code changed yet.
+Two new Nexus comments; the notes below are what 2.1.1 was built from.
 
 - **SN2ModSettings is gone.** Nexus mods/20 says "Removed by author". The author's GitHub
   (JustChaldea) also 404s, so no source is available; there is no license to fork under.
@@ -56,8 +99,14 @@ Two new Nexus comments. Holding replies drafted for Bon to post; no code changed
 
 ## Open items (not started, no commitments)
 
-- **Co-op verification** of deposit spawning. Lead: `ServerExecRPC` usage in the
-  NotOnlyTitanium mod. Reports from users welcome per the mod page.
+- **Co-op verification** of deposit spawning on two PCs (2.1.1 assumes that a deposit the
+  host spawns replicates to clients; the bug report suggests it does, but this is not
+  confirmed). If it does NOT replicate, the fallback is the `ServerExecRPC` /
+  `ClientMessage` pattern (see the PaintBrush mod) to tell clients where to spawn.
+- **Own settings menu:** a separate session is building a clean-room SN2ModSettings
+  replacement in `D:\Personal\SN2-Mod-Settings`. Once it ships, have ResourceRespawn
+  register with it too (today `writeRegistration` only writes when
+  `SN2ModSettings/enabled.txt` exists).
 - **Yield variance:** a respawned node rolls its own piece count. Investigated and
   declined — the roll belongs to the game's blueprint. Documented on the page.
 - **v-next idea:** hook the harvest event instead of polling `FindAllOf` (the remaining

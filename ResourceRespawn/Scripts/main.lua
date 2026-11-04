@@ -4,6 +4,28 @@ local UEHelpers = require("UEHelpers")
 
 local function log(s) print("[ResourceRespawn] " .. s .. "\n") end
 
+-- config.lua layout. Since 2.1.1 the player-facing settings, per-resource toggles
+-- included, sit at the top level of the returned table, and the developer flags live in a
+-- nested `Dev = { ... }` table. That is the shape UE4SS Mod Manager's "Configure mod"
+-- window can edit: it lists top-level scalars only and skips nested tables. It matters
+-- now that SN2ModSettings is gone from Nexus and config.lua is how most people configure
+-- the mod. The 2.1.0 layout (flags at top level, toggles in `Resources = {}`) still
+-- works: a top-level key always wins, and nested values only fill gaps.
+if type(cfg.Dev) == "table" then
+    for k, v in pairs(cfg.Dev) do
+        if cfg[k] == nil then cfg[k] = v end
+    end
+end
+
+-- Default on/off for one resource from config.lua: top level first, then the old nested
+-- table, then on.
+local function cfgResource(key)
+    local v = cfg[key]
+    if v == nil and type(cfg.Resources) == "table" then v = cfg.Resources[key] end
+    if v == nil then v = true end
+    return v
+end
+
 -- Diagnostic module. Loaded defensively: it pulls in UEHelpers, and a failure there must
 -- never take the whole mod down with it.
 local probe = nil
@@ -93,7 +115,7 @@ local function writeRegistration()
         "return {\n",
         '    name = "ResourceRespawn",\n',
         string.format("    display = %q,\n", lang.s("display")),
-        '    version = "2.1.0",\n',
+        '    version = "2.1.1",\n',
         string.format("    description = %q,\n", lang.s("modDescription")),
         "    settings = {\n",
         string.format(
@@ -173,7 +195,7 @@ local function currentSettings()
         return fallback
     end
 
-    local enabled = pick("Enabled", true)
+    local enabled = pick("Enabled", cfg.Enabled ~= false)
 
     -- Single global respawn time for all resources.
     local def = cfg.RespawnSeconds or 120
@@ -188,9 +210,7 @@ local function currentSettings()
     if enabled then
         for _, r in ipairs(RESOURCES) do
             if r.supported ~= false then
-                local rdef = (cfg.Resources and cfg.Resources[r.key])
-                if rdef == nil then rdef = true end
-                if pick(r.key, rdef) then
+                if pick(r.key, cfgResource(r.key)) then
                     active[#active + 1] = { sub = r.sub, seconds = seconds }
                 end
             end
@@ -238,6 +258,7 @@ local spawnFailLogged = false
 local ticks = 0   -- full scans performed
 local wakes = 0   -- timer fires, including the ones we skip
 local lastFlaggedCount = 0   -- Verbose only: log when the number of husks in range changes
+local clientMode = false     -- true while this machine is a client in someone else's game
 
 local NEAR  = 15000   -- 150m; you can only harvest what is close by
 local NEAR2 = NEAR * NEAR
@@ -336,6 +357,71 @@ local function playerPos()
     local loc
     pcall(function() loc = pc.Pawn:K2_GetActorLocation() end)
     return loc
+end
+
+-- Every player's position, so that on a co-op host a spot next to a friend is looked
+-- after as well as one next to the host. UEHelpers.GetAllPlayers() reads the game
+-- state's player list, which is cheap, unlike another FindAllOf walk of the whole object
+-- array. Anything going wrong falls back to the local player alone, which is exactly the
+-- single-player behaviour.
+local function rawPawnLoc(pawn) return pawn:K2_GetActorLocation() end
+
+local function playerPositions()
+    local out = {}
+    local ok, pawns = pcall(function() return UEHelpers.GetAllPlayers() end)
+    if ok and type(pawns) == "table" then
+        for _, pawn in ipairs(pawns) do
+            local ok2, loc = pcall(rawPawnLoc, pawn)
+            if ok2 and loc and loc.X then out[#out + 1] = loc end
+        end
+    end
+    if #out == 0 then
+        local p = playerPos()
+        if p then out[1] = p end
+    end
+    return out
+end
+
+-- Squared distance from (x, y, z) to the nearest player, or nil with no players.
+local function nearestD2(players, x, y, z)
+    local best
+    for i = 1, #players do
+        local p = players[i]
+        local dx, dy, dz = x - p.X, y - p.Y, z - p.Z
+        local d2 = dx * dx + dy * dy + dz * dz
+        if not best or d2 < best then best = d2 end
+    end
+    return best
+end
+
+-- Co-op: only the host may respawn anything.
+--
+-- In a co-op game the host's world is the real one. A node the host spawns is replicated
+-- to everyone, and harvesting it works for everyone. A node a CLIENT spawns exists on
+-- that client's screen only: the host has never heard of it, so it cannot be mined. With
+-- the mod on both machines a client therefore saw two nodes on every respawned spot, the
+-- host's real one and its own ghost, and the ghost "won't break" (reported by
+-- Fe1eNinamu24, 2026-09-18). Refill on load made it show up the moment you swam into an
+-- area. A client also sees nodes vanish for reasons that are not a harvest: replication
+-- drops actors that fall out of relevance. So on a client the mod stands aside
+-- completely and lets the host's copy do the work.
+--
+-- IsServer is true on a listen-server host, in single player and on a dedicated server;
+-- false only when this machine joined someone else's game. If the question cannot be
+-- answered at all (world not ready, API missing), assume NOT a client: that keeps the
+-- single-player behaviour exactly as it was.
+local ksl  -- KismetSystemLibrary CDO, stable for the process
+local function isNetClient()
+    if not ksl then
+        local ok, v = pcall(function() return UEHelpers.GetKismetSystemLibrary() end)
+        if ok then ksl = v end
+    end
+    if not ksl then return false end
+    local okW, wco = pcall(function() return UEHelpers.GetWorldContextObject() end)
+    if not okW or not wco then return false end
+    local ok, server = pcall(function() return ksl:IsServer(wco) end)
+    if not ok or type(server) ~= "boolean" then return false end
+    return server == false
 end
 
 local function newGuid(a)
@@ -513,6 +599,21 @@ local function tick()
     wakes = wakes + 1
     if (wakes % scanStride(s)) ~= 0 then return end
 
+    -- Co-op client: stand aside entirely (see isNetClient). Everything remembered is
+    -- dropped too. It describes a world this machine does not own, and must not fire later
+    -- as a burst of respawns when the player goes back to their own single-player save.
+    if isNetClient() then
+        if not clientMode then
+            clientMode = true
+            snapshot, pending, watched = {}, {}, {}
+            log("joined a co-op game as a client: respawns are handled by the host's copy of the mod")
+        end
+        return
+    elseif clientMode then
+        clientMode = false
+        log("hosting or playing solo: respawns active")
+    end
+
     if cfg.DeepScan then pcall(deepScan) end
 
     local now = os.time()
@@ -525,14 +626,20 @@ local function tick()
     local nodes = FindAllOf("UWEWorldPopResourceBaseActor") or {}
     if prof then tFind = os.clock() - tFind end
 
-    local p = playerPos()
+    -- Everyone in the game, not only the local player: on a co-op host a spot harvested by
+    -- a friend 500m away must be looked after too, and only the host's copy acts.
+    local players = playerPositions()
 
     ticks = ticks + 1
 
     if probe then pcall(function() probe.run(nodes, log) end) end
 
     -- Nothing to do without a player to measure distance from.
-    if not p then return end
+    if #players == 0 then return end
+    local function isNear(x, y, z)
+        local d2 = nearestD2(players, x, y, z)
+        return d2 ~= nil and d2 <= NEAR2
+    end
 
     -- The world holds well over a thousand resource actors, and this runs on the game
     -- thread. Reflecting over every one of them each scan is what made the game hitch
@@ -593,8 +700,7 @@ local function tick()
         -- tell "still in the world" apart from "gone, and this entry is dead weight".
         at.seen = now
 
-        local dx, dy, dz = at.x - p.X, at.y - p.Y, at.z - p.Z
-        if dx * dx + dy * dy + dz * dz > NEAR2 then return end   -- too far to matter
+        if not isNear(at.x, at.y, at.z) then return end   -- too far to matter
 
         -- Within reach: now it is worth the reflection calls.
         local gathered, destroyed, valid = nodeState(a)
@@ -677,13 +783,8 @@ local function tick()
         if not standing[key] and not pending[key] then
             -- It could also have vanished because the area streamed out. Only count it as
             -- a harvest if the player is still standing next to the spot.
-            local near = false
-            if p then
-                local dx, dy, dz = e.x - p.X, e.y - p.Y, e.z - p.Z
-                near = (dx * dx + dy * dy + dz * dz) <= NEAR2
-            end
             local secs = cooldown or 300
-            if near then
+            if isNear(e.x, e.y, e.z) then
                 pending[key] = {
                     cn = e.cn, clsPath = e.clsPath, static = e.static,
                     x = e.x, y = e.y, z = e.z,
@@ -759,11 +860,7 @@ local function tick()
     --     moment it vanished. Without this a single missed scan leaves the spot dead
     --     forever; with it, the spot always heals itself on the next pass.
     for key, e in pairs(watched) do
-        local dx, dy, dz = 0, 0, 0
-        if p then dx, dy, dz = e.x - p.X, e.y - p.Y, e.z - p.Z end
-        local near = p and (dx * dx + dy * dy + dz * dz) <= NEAR2
-
-        if not near then
+        if not isNear(e.x, e.y, e.z) then
             -- Out of range: forget it. Otherwise, when the player swims back and the area
             -- has not finished re-streaming its actors, the spot would look "empty" and we
             -- would hand out a free resource node nobody harvested.
@@ -854,7 +951,7 @@ end)
 
 local how = hasModSettings and "SN2ModSettings detected — adjust in the in-game menu"
                            or  "using config.lua — SN2ModSettings not found"
-log("ready v2.1.0 (lang=" .. lang.code .. ", " .. how .. ")")
+log("ready v2.1.1 (lang=" .. lang.code .. ", " .. how .. ")")
 
 do  -- report the settings actually in effect, so a stale menu value is never a mystery
     local s = currentSettings()

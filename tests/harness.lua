@@ -42,7 +42,9 @@ end
 --------------------------------------------------------------------------------
 -- World + actor mocks
 --------------------------------------------------------------------------------
-local world = { nodes = {}, player = { X = 0, Y = 0, Z = 0 } }
+-- netClient: this machine joined someone else's co-op game (IsServer -> false).
+-- others: extra players' positions, as a co-op host sees them.
+local world = { nodes = {}, player = { X = 0, Y = 0, Z = 0 }, netClient = false, others = {} }
 local nextAddr = 4096
 
 local function makeClass(name)
@@ -127,6 +129,18 @@ package.loaded["UEHelpers"] = {
         return { MakeTransform = function(_, loc, rot, scl) return { loc = loc, rot = rot, scl = scl } end }
     end,
     GetWorldContextObject = function() return { __wco = true } end,
+    GetKismetSystemLibrary = function()
+        return { IsServer = function() bump("IsServer") return not world.netClient end }
+    end,
+    -- Every pawn in the game: the local player first, then anyone else.
+    GetAllPlayers = function()
+        local pawns = { { K2_GetActorLocation = function() return world.player end } }
+        for _, o in ipairs(world.others) do
+            local pos = o
+            pawns[#pawns + 1] = { K2_GetActorLocation = function() return pos end }
+        end
+        return pawns
+    end,
 }
 
 package.loaded["lang"] = {
@@ -442,6 +456,129 @@ CLOCK.t = CLOCK.t + 16
 tick(2)
 check("toggle off disables the grace", spawnsAt(14400) == 0,
       spawnsAt(14400) .. " spawns despite the toggle")
+
+--------------------------------------------------------------------------------
+-- 10. Co-op client stands aside (Fe1eNinamu24's duplicate-node report)
+--------------------------------------------------------------------------------
+-- A node a client spawns exists only on that client and cannot be mined, so a client
+-- must never spawn, un-flag or destroy anything. The host's copy does the work.
+section("10. co-op client never respawns")
+
+writeSaved(15)
+quiesce()
+CLOCK.t = CLOCK.t + 60          -- settings TTL
+tick(1)
+
+local c1 = addNode("BP_ResourceDeposit_Titanium", 4100, 0, 0, false)
+tick()                          -- seen standing while still the host / solo
+world.netClient = true          -- now a client in someone else's game
+reset()
+removeNode(c1)                  -- harvested (or dropped out of replication relevance)
+tick()
+CLOCK.t = CLOCK.t + 61
+tick(3)
+check("client spawns nothing", got("BeginSpawn") == 0, got("BeginSpawn"))
+check("client does not even scan", got("FindAllOf") == 0, got("FindAllOf") .. " scans")
+
+addNode("BP_ResourceDeposit_Titanium", 4300, 0, 0, true)   -- husk handed back on join
+reset()
+tick()
+CLOCK.t = CLOCK.t + 61
+tick(3)
+check("client does not refill husks either", got("BeginSpawn") == 0 and got("OnRep") == 0,
+      got("BeginSpawn") .. " spawns, " .. got("OnRep") .. " OnRep")
+check("client mode is logged once", (function()
+    local n = 0
+    for _, l in ipairs(logs) do if l:find("as a client", 1, true) then n = n + 1 end end
+    return n == 1
+end)(), "expected exactly one client-mode log line")
+
+-- Back to solo: the spot that went dark while a client must not burst back as a free
+-- node. The husk still sitting there is a genuine refill case and does come back.
+world.netClient = false
+world.nodes = {}
+reset()
+tick()
+CLOCK.t = CLOCK.t + 61
+tick(2)
+check("no stale respawn after leaving co-op", spawnsAt(4100) == 0,
+      spawnsAt(4100) .. " spawns at the old client-mode spot")
+
+local c2 = addNode("BP_ResourceDeposit_Titanium", 4500, 0, 0, false)
+tick()
+removeNode(c2)
+tick()
+CLOCK.t = CLOCK.t + 61
+tick()
+check("host/solo respawns again afterwards", spawnsAt(4500) == 1,
+      spawnsAt(4500) .. " spawns at the spot")
+
+--------------------------------------------------------------------------------
+-- 11. The host looks after spots near every player
+--------------------------------------------------------------------------------
+section("11. host covers a friend's spot far away")
+
+quiesce()
+world.player = { X = 0, Y = 0, Z = 0 }
+world.others = { { X = 5000000, Y = 0, Z = 0 } }        -- a friend 50km away
+local fr = addNode("BP_ResourceDeposit_Copper", 5000500, 0, 0, false)
+tick()                          -- 5m from the friend, 50km from the host
+removeNode(fr)                  -- the friend mines it
+tick()
+CLOCK.t = CLOCK.t + 61
+tick()
+check("spot next to a friend respawns", spawnsAt(5000500) == 1,
+      spawnsAt(5000500) .. " spawns at the friend's spot")
+
+world.others = {}               -- the friend logs off
+local farAgain = addNode("BP_ResourceDeposit_Copper", 5001500, 0, 0, false)
+tick()
+removeNode(farAgain)
+tick()
+CLOCK.t = CLOCK.t + 61
+tick()
+check("with nobody there it is left alone", spawnsAt(5001500) == 0,
+      spawnsAt(5001500) .. " spawns with no player in range")
+
+--------------------------------------------------------------------------------
+-- 12. config.lua layout (UE4SS Mod Manager can only edit top-level scalars)
+--------------------------------------------------------------------------------
+section("12. config.lua layout")
+
+local cfgT = package.loaded["config"]
+local RES = { "Titanium", "Copper", "Quartz", "Salt", "WaterSlug", "Lead", "Silver",
+              "Sulfur", "Gold", "Lithium", "Atacamite", "Celestine", "ConduitCrystal",
+              "CreatureEnamel", "AxumCulture", "Troilite" }
+local missing = {}
+for _, k in ipairs(RES) do
+    if type(cfgT[k]) ~= "boolean" then missing[#missing + 1] = k end
+end
+check("every resource toggle is a top-level boolean", #missing == 0, table.concat(missing, ","))
+check("no nested Resources table any more", cfgT.Resources == nil, "Resources still present")
+check("dev flags live in Dev", type(cfgT.Dev) == "table" and cfgT.Dev.Probe == false
+      and cfgT.Dev.Verbose == false and cfgT.Dev.CheckIntervalMs == 5000, "Dev table wrong")
+check("Dev values are lifted for the mod", cfgT.CheckIntervalMs == 5000 and cfgT.Probe == false,
+      "CheckIntervalMs=" .. tostring(cfgT.CheckIntervalMs))
+
+-- A player who updates but keeps their 2.1.0 config.lua still has the nested
+-- `Resources = { Copper = false, ... }` table. It must still be obeyed. The saved menu
+-- file here names Titanium only, so Copper falls through to config.lua.
+quiesce()
+cfgT.Copper, cfgT.Resources = nil, { Copper = false }
+CLOCK.t = CLOCK.t + 60          -- settings TTL, so the change is read
+tick(1)
+local oldCu = addNode("BP_ResourceDeposit_Copper", 4700, 0, 0, false)
+local oldTi = addNode("BP_ResourceDeposit_Titanium", 4900, 0, 0, false)
+tick()
+removeNode(oldCu) removeNode(oldTi)
+tick()
+CLOCK.t = CLOCK.t + 61
+tick()
+check("old Resources table still switches a resource off", spawnsAt(4700) == 0,
+      spawnsAt(4700) .. " copper spawns")
+check("old layout leaves the others on", spawnsAt(4900) == 1,
+      spawnsAt(4900) .. " titanium spawns")
+cfgT.Copper, cfgT.Resources = true, nil
 
 --------------------------------------------------------------------------------
 section("summary")
