@@ -266,6 +266,10 @@ local clientMode = false     -- true while this machine is a client in someone e
 -- respawning" (Fe1eNinamu24, 2026-11-04). Off (nil) in releases.
 local traceSub   -- refreshed from cfg.Trace at the start of every scan
 local traceNow, traceLast = {}, {}
+-- Dev.Trace: actors we just spawned, by address -> class name. The next scan reports
+-- whether each one is in the engine's list at all, telling "the game deleted it" apart
+-- from "the mod could not see it".
+local spawnWatch = {}
 
 local NEAR  = 15000   -- 150m; you can only harvest what is close by
 local NEAR2 = NEAR * NEAR
@@ -526,9 +530,20 @@ local function spawnReplacement(e)
         return false
     end
 
+    -- Seed the position cache with the new actor, under its own address. The engine
+    -- recycles addresses: if this one last belonged to some far-away actor, the cache
+    -- would keep that stale position for up to REFRESH_AFTER seconds and the scan would
+    -- treat our fresh node as out of range, see its spot as empty, and spawn another on
+    -- top of it. We know exactly where we put it, so say so.
+    local newAddr = try(rawAddr, spawned)
+    if type(newAddr) == "number" and newAddr ~= 0 then
+        locCache[newAddr] = { x = e.x, y = e.y, z = e.z, t = os.time() }
+        if traceSub then spawnWatch[newAddr] = { cn = e.cn, scan = ticks } end
+    end
+
     if cfg.Verbose then
         log(string.format("respawned %s at (%.0f, %.0f, %.0f) new addr=%s",
-            e.cn, e.x, e.y, e.z, tostring(try(rawAddr, spawned))))
+            e.cn, e.x, e.y, e.z, tostring(newAddr)))
     end
     return true
 end
@@ -713,6 +728,12 @@ local function tick()
         end
         if not addr then return end
 
+        if spawnWatch[addr] then
+            log(string.format("TRACE spawned %s addr=%s is in the engine's list this scan",
+                spawnWatch[addr].cn, tostring(addr)))
+            spawnWatch[addr] = nil
+        end
+
         local at = locCache[addr]
         if at and (now - at.t) >= REFRESH_AFTER and refreshBudget > 0 then
             refreshBudget = refreshBudget - 1
@@ -815,6 +836,13 @@ local function tick()
             end
         end
         traceLast, traceNow = traceNow, {}
+    end
+    -- Every entry left was spawned in an earlier scan (spawns happen further down) and
+    -- did not turn up in this scan's FindAllOf at all: the engine removed it.
+    for addr, w in pairs(spawnWatch) do
+        log(string.format("TRACE spawned %s addr=%s is NOT in the engine's list (removed already)",
+            w.cn, tostring(addr)))
+        spawnWatch[addr] = nil
     end
 
     -- Verbose only: husks (flagged-but-alive nodes) are what refill-on-load feeds on, so

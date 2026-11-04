@@ -63,6 +63,25 @@ the flag, OnRep) whenever the husk is in view, and spawns a fresh one otherwise.
 - Side note: the log has no `ready v2.1.1` / `settings:` startup lines, even though the
   mod clearly ran. Worth a look; it may be UE4SS's log timing at startup.
 
+**Second run (15:02-15:06), driven by the SN2-Mod-Settings session, not Bon:** an Axum
+went `gone` at 15:04:58, was respawned at 15:05:28 near the player, and its spot was
+re-queued at 15:05:33 because the new cage was not seen. The log is missing lines (a
+`gone` with no earlier `seen`, which the code cannot produce; the game was still running,
+so the file was likely not fully flushed). So it cannot say whether the game deleted the
+cage or the mod failed to see it.
+- **Fixed regardless:** positions are cached by actor address for up to 60s, and the
+  engine recycles addresses. A replacement could inherit a far actor's stale position,
+  look out of range, and get a second node stacked on it. `spawnReplacement` now seeds
+  `locCache[newAddr]` with the spawn position. Test: section 15; the mutation check bites.
+- **New trace:** with `Dev.Trace` set, every spawned address is checked on the next scan:
+  `TRACE spawned X addr=N is in the engine's list` or `is NOT in the engine's list
+  (removed already)`. That separates "the game deleted it" from "we missed it".
+- The harness's spawn mock now returns a real mock actor (its own address, can reuse
+  `world.recycleAddr`) and puts it into the world. 89 tests green.
+- The settings session's compat folder `ue4ss/Mods/SN2ModSettings/enabled.txt` makes RR
+  read `SN2ModSettings/saved/ResourceRespawn.lua` whenever it exists, overriding
+  config.lua. That is why the 15:02 run briefly used 120s.
+
 Original hypotheses, kept for the record:
 1. **The timer fires while the player is far away.** The pending loop fires on time
    regardless of distance. With the husk out of view it spawns a new cage into an area

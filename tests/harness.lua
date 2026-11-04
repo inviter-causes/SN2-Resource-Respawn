@@ -123,20 +123,23 @@ package.loaded["UEHelpers"] = {
                     return { IsValid = function() return false end,
                              GetAddress = function() return 0 end }
                 end
-                return { __cls = cls, __xform = xform }
+                -- A real mock actor, like the engine's: it has its own address, and
+                -- FinishSpawningActor puts it in the world. world.recycleAddr makes it
+                -- reuse an old actor's address, as the engine does.
+                local path = cls and cls.__path
+                local name = path and path:match("/Game/Res/([^%.]+)%.") or "BP_Unknown"
+                local l, scl = xform.loc, xform.scl
+                local a = makeActor(name, l.X, l.Y, l.Z, false, scl and scl.X)
+                if world.recycleAddr then a.__addr, world.recycleAddr = world.recycleAddr, nil end
+                a.__cls, a.__xform = cls, xform
+                return a
             end,
             FinishSpawningActor = function(_, a)
                 bump("FinishSpawn")
                 spawned[#spawned + 1] = a
                 -- Like the game: the replacement now stands in the world, so the next
                 -- scan sees the spot occupied instead of empty.
-                local path = a.__cls and a.__cls.__path
-                local name = path and path:match("/Game/Res/([^%.]+)%.")
-                local l = a.__xform and a.__xform.loc
-                if name and l then
-                    local scl = a.__xform.scl
-                    addNode(name, l.X, l.Y, l.Z, false, scl and scl.X)
-                end
+                world.nodes[#world.nodes + 1] = a
             end,
         }
     end,
@@ -686,6 +689,50 @@ CLOCK.t = CLOCK.t + 11
 tick()
 check("the spot is retried, not forgotten", spawnsAt(5700) == 1,
       spawnsAt(5700) .. " spawns after the retry")
+
+--------------------------------------------------------------------------------
+-- 15. A fresh node at a recycled address is not mistaken for a far-away one
+--------------------------------------------------------------------------------
+-- Positions are cached by actor address and trusted for up to a minute. The engine
+-- reuses addresses, so a replacement could inherit a far-away actor's cached position,
+-- look out of range, leave its spot "empty", and get a second node spawned on top. The
+-- mod now seeds the cache with the position it spawned at.
+section("15. recycled address + spawn trace")
+
+quiesce()
+cfgT.Trace = "axum"
+local far15 = addNode("BP_ResourceDeposit_Titanium", 9000000, 0, 0, false)
+local cage15 = addNode("BP_AxumBioprintCulture_Cage", 5900, 0, 0, false)
+tick()                                     -- both cached; the cage is seen standing
+removeNode(far15) removeNode(cage15)       -- far one streams out, cage harvested
+tick()                                     -- cage spot queued
+CLOCK.t = CLOCK.t + 16
+world.recycleAddr = far15.__addr           -- the replacement reuses the far actor's address
+local inList0 = logsMatching("is in the engine's list this scan")
+tick()                                     -- spawns the replacement
+tick()                                     -- must see it standing, not "far away"
+check("trace confirms the spawned node is in the engine's list",
+      logsMatching("is in the engine's list this scan") == inList0 + 1,
+      logsMatching("is in the engine's list this scan") - inList0)
+CLOCK.t = CLOCK.t + 16
+tick(2)
+check("no second node stacked on a recycled address", spawnsAt(5900) == 1,
+      spawnsAt(5900) .. " spawns at the spot")
+
+-- The other trace outcome: the engine removes the replacement before the next scan.
+local cage15b = addNode("BP_AxumBioprintCulture_Cage", 6100, 0, 0, false)
+tick()
+removeNode(cage15b)
+tick()
+CLOCK.t = CLOCK.t + 16
+local notIn0 = logsMatching("is NOT in the engine's list")
+tick()                                     -- spawns
+world.nodes[#world.nodes] = nil            -- the game deletes it straight away
+tick()
+check("trace reports a replacement the engine removed",
+      logsMatching("is NOT in the engine's list") == notIn0 + 1,
+      logsMatching("is NOT in the engine's list") - notIn0)
+cfgT.Trace = ""
 
 --------------------------------------------------------------------------------
 section("summary")

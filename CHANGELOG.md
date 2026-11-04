@@ -10,6 +10,8 @@
   nobody was near the spot, the game could refuse the respawn and the mod forgot the spot
   for good. People noticed it most with the rare Axum Bacterial Culture. Now a spot
   respawns once you are back near it, and a refused respawn is retried instead of dropped
+- Fixed a rare case where a freshly respawned node was missed by the mod and a second
+  copy got stacked on top of it
 - Easier to configure now that Mod Settings has left Nexus. Every setting in `config.lua`,
   including each resource toggle, is on its own line with a description, so
   UE4SS Mod Manager's "Configure mod" button can edit all of it. Developer options moved
