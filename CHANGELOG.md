@@ -6,6 +6,10 @@
   mined. Only the host's copy of the mod respawns resources now, and every player sees
   that one node. A client's copy of the mod stays idle
 - In co-op the host also respawns spots near the other players, not only near the host
+- Fixed resources that never came back after you swam away. If the timer ran out while
+  nobody was near the spot, the game could refuse the respawn and the mod forgot the spot
+  for good. People noticed it most with the rare Axum Bacterial Culture. Now a spot
+  respawns once you are back near it, and a refused respawn is retried instead of dropped
 - Easier to configure now that Mod Settings has left Nexus. Every setting in `config.lua`,
   including each resource toggle, is on its own line with a description, so
   UE4SS Mod Manager's "Configure mod" button can edit all of it. Developer options moved

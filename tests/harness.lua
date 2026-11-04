@@ -117,11 +117,26 @@ package.loaded["UEHelpers"] = {
         return {
             BeginDeferredActorSpawnFromClass = function(_, _, cls, xform)
                 bump("BeginSpawn")
+                if world.spawnInvalid then
+                    -- What UE4SS hands back when the engine refuses the spawn: an object,
+                    -- not nil, but invalid with address 0 (seen in the 2026-11-04 trace).
+                    return { IsValid = function() return false end,
+                             GetAddress = function() return 0 end }
+                end
                 return { __cls = cls, __xform = xform }
             end,
             FinishSpawningActor = function(_, a)
                 bump("FinishSpawn")
                 spawned[#spawned + 1] = a
+                -- Like the game: the replacement now stands in the world, so the next
+                -- scan sees the spot occupied instead of empty.
+                local path = a.__cls and a.__cls.__path
+                local name = path and path:match("/Game/Res/([^%.]+)%.")
+                local l = a.__xform and a.__xform.loc
+                if name and l then
+                    local scl = a.__xform.scl
+                    addNode(name, l.X, l.Y, l.Z, false, scl and scl.X)
+                end
             end,
         }
     end,
@@ -178,10 +193,22 @@ end
 -- that sit empty while the player is next to them, which is correct behaviour and exactly
 -- what leaks across tests. Moving the player out of range is what drops those entries;
 -- jumping the clock first lets anything already queued fire and retire.
+--
+-- Since 2.1.1 a due respawn waits until a player is back next to the spot, so walking
+-- away no longer drains the queue. Each round therefore comes back to the origin long
+-- enough for everything queued there to fire (spawn budget is 3 a scan), then leaves
+-- again so the freshly respawned spots drop out of `watched`.
 local function quiesce()
     world.nodes  = {}
+    for _ = 1, 3 do
+        world.player = { X = 5e8, Y = 5e8, Z = 5e8 }
+        CLOCK.t = CLOCK.t + 100000
+        tick(5)
+        world.player = { X = 0, Y = 0, Z = 0 }
+        tick(8)
+    end
     world.player = { X = 5e8, Y = 5e8, Z = 5e8 }
-    CLOCK.t = CLOCK.t + 100000
+    world.nodes  = {}            -- drop the replacements the drain just spawned
     tick(5)
     world.player = { X = 0, Y = 0, Z = 0 }
     tick(1)
@@ -612,6 +639,53 @@ check("an unchanged world logs nothing more",
       logsMatching("TRACE seen") == before13.seen + 1 and logsMatching("TRACE change") == before13.change + 1,
       "extra trace lines")
 cfgT.Trace = ""
+
+--------------------------------------------------------------------------------
+-- 14. Respawns wait for a player, and a refused spawn is retried (Axum report)
+--------------------------------------------------------------------------------
+-- The 2026-11-04 trace: harvest, swim off, the timer fires with nobody near, the engine
+-- refuses the spawn (invalid object, address 0), the mod counted it as done and forgot
+-- the spot. Back at the spot: nothing, forever. Fe1eNinamu24 saw it on the rare Axum.
+section("14. respawn waits for a player; refused spawns are retried")
+
+quiesce()
+world.player = { X = 0, Y = 0, Z = 0 }
+local ax = addNode("BP_AxumBioprintCulture_Cage", 5500, 0, 0, false)
+tick()                                    -- seen standing
+removeNode(ax)                            -- harvested (the cage is destroyed)
+tick()                                    -- queued with the player right there
+world.player = { X = 5e7, Y = 0, Z = 0 }  -- swims far away
+CLOCK.t = CLOCK.t + 61                    -- timer runs out while away
+tick(3)
+check("nothing spawns while no player is near", spawnsAt(5500) == 0,
+      spawnsAt(5500) .. " spawns with nobody there")
+world.player = { X = 0, Y = 0, Z = 0 }    -- comes back
+tick()
+check("not on the first scan back (area still streaming)", spawnsAt(5500) == 0,
+      spawnsAt(5500) .. " spawns on arrival")
+tick()
+check("respawns once the player has settled in range", spawnsAt(5500) == 1,
+      spawnsAt(5500) .. " spawns after settling")
+
+-- The engine refuses the spawn: retry, do not forget.
+quiesce()
+local ax2 = addNode("BP_AxumBioprintCulture_Cage", 5700, 0, 0, false)
+tick()
+removeNode(ax2)
+tick()
+CLOCK.t = CLOCK.t + 61
+world.spawnInvalid = true
+reset()
+tick()
+check("a refused spawn is attempted", got("BeginSpawn") == 1 and spawnsAt(5700) == 0,
+      got("BeginSpawn") .. " attempts, " .. spawnsAt(5700) .. " finished")
+world.spawnInvalid = false
+tick()
+check("no retry before the retry delay", spawnsAt(5700) == 0, spawnsAt(5700) .. " spawns")
+CLOCK.t = CLOCK.t + 11
+tick()
+check("the spot is retried, not forgotten", spawnsAt(5700) == 1,
+      spawnsAt(5700) .. " spawns after the retry")
 
 --------------------------------------------------------------------------------
 section("summary")

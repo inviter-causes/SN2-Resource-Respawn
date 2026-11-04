@@ -61,7 +61,9 @@ Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture, 
 
 - **Range.** The mod only acts within ~150m of the player. That distance cull is what
   keeps the scan cheap; without it, reflecting over all ~1400 resource actors every 5s
-  hitched the frame. A node harvested and then abandoned respawns when you return.
+  hitched the frame. A node harvested and then abandoned respawns when you return: a due respawn waits until
+  a player has been in range of the spot for two scans in a row, because spawns fired into
+  a streamed-out area came back invalid (2026-11-04 trace) and the spot was lost.
 - **Respawned nodes are not saved.** They are spawned at runtime, so a save reload drops
   them — but on load the mod sees the spot is empty and refills it anyway.
 - **Co-op.** Only the host's copy of the mod acts (`KismetSystemLibrary:IsServer`). A

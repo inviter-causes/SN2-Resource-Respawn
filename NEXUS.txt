@@ -12,6 +12,7 @@ Everything is configurable from one small settings file, and [url=https://www.ne
 [list]
 [*][b]Co-op fixed.[/b] The second player no longer sees a duplicate node that can't be mined. Only the host's copy of the mod respawns resources now, so everyone sees the same single node. (Thanks Fe1eNinamu24 for the report!)[/*]
 [*][b]The host also looks after spots near the other players[/b], not only the spots near the host.[/*]
+[*][b]Fixed: resources that never came back after you swam away.[/b] If the timer ran out while nobody was near, the game could refuse the respawn and the spot was lost for good. You'd notice it most with the rare Axum Bacterial Culture. Now the spot refills as soon as you are back near it. (Thanks Fe1eNinamu24 for the report!)[/*]
 [*][b]Easy to configure without Mod Settings.[/b] Mod Settings was removed from Nexus by its author. Every setting in [i]config.lua[/i], including each resource toggle, is now on its own line with a description, so the [b]Configure mod[/b] button in UE4SS Mod Manager can edit all of it. (Thanks modsyouknow for asking!)[/*]
 [*]Your old config.lua from 2.1 still works.[/*]
 [/list]

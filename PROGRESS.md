@@ -42,7 +42,28 @@ the timer, and when they get close it's gone, in solo and in co-op alike. Axum i
 `static = false`: the mod restores it in place (`bringBack`: new random ResourceId, clear
 the flag, OnRep) whenever the husk is in view, and spawns a fresh one otherwise.
 
-Two hypotheses, not yet confirmed:
+**Found and fixed (2026-11-04, from the first trace run, `UE4SS.log` 14:43-14:51):**
+- Axum near the player works fine. Harvesting sets the cage to `gathered=true
+  destroyed=true`, and it lingers about 30s before the actor goes away. So it actually
+  takes the absence → spawn path, not the in-place one. It respawned twice in a row with
+  Bon standing there. Hypothesis 2 below is therefore moot for Axum.
+- The real bug: due respawns fired with `player near the spot: false`, and 9 of them got
+  back `new addr=0`. UE4SS returns an invalid object, not nil, when the engine refuses the
+  spawn. The mod counted that as done, set `snapshot`/`watched`, and settled the pending
+  entry. On return the spot was empty and never queued again. This is not Axum-specific
+  (silver and slugs were hit too); Axum is just rare enough that people notice.
+- Fix: a due entry fires only after a player has been near the spot for `SETTLE_SCANS = 2`
+  scans in a row. `spawnReplacement` treats an invalid or 0-address result as a failure,
+  and failures are retried every 10s, giving up only after 6 tries with a player present.
+  Tests: section 14, and a mutation check of both fixes bites. The harness now puts
+  spawned replacements into the mock world, and `quiesce` drains the queue near the
+  origin, because walking away no longer drains it.
+- Still to see in game: scenario B (harvest, swim more than 200m away, come back) with
+  the fix in place.
+- Side note: the log has no `ready v2.1.1` / `settings:` startup lines, even though the
+  mod clearly ran. Worth a look; it may be UE4SS's log timing at startup.
+
+Original hypotheses, kept for the record:
 1. **The timer fires while the player is far away.** The pending loop fires on time
    regardless of distance. With the husk out of view it spawns a new cage into an area
    that isn't loaded, while the old gathered cage still exists. On return, both stream in

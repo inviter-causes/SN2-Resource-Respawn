@@ -277,6 +277,14 @@ local NEAR2 = NEAR * NEAR
 -- respawn time again for spots emptied last session.
 local REFILL_GRACE = 15   -- seconds
 
+-- A due respawn fires only after a player has been within range of the spot for this
+-- many scans in a row (area streamed in and settled). See the pending loop.
+local SETTLE_SCANS = 2
+
+-- A spawn the engine refuses is retried, not forgotten.
+local SPAWN_RETRY_SECS = 10
+local SPAWN_RETRIES    = 6
+
 -- Cache maintenance. The ages are in seconds, not scans, so that changing how often we
 -- scan does not silently change how long a cached position is trusted.
 local REFRESH_AFTER = 60     -- re-read a cached position once it is this old
@@ -496,12 +504,22 @@ local function spawnReplacement(e)
         -- 1 = ESpawnActorCollisionHandlingMethod::AlwaysSpawn
         local a = gs:BeginDeferredActorSpawnFromClass(wco, cls, xform, 1, nil, 0)
         if not a then error("deferred spawn returned nil") end
+        -- UE4SS hands back an invalid UObject rather than nil when the engine refuses the
+        -- spawn. The 2026-11-04 trace caught exactly that: spawns at spots no player was
+        -- near came back with address 0, were counted as done, and the spot was never
+        -- refilled ("Axum culture gone when I get close", Fe1eNinamu24). Only a definite
+        -- "invalid" counts here; a read that merely fails proves nothing either way.
+        local okV, isValid = pcall(rawValid, a)
+        local okA, addr    = pcall(rawAddr, a)
+        if (okV and isValid == false) or (okA and addr == 0) then
+            error("deferred spawn returned an invalid object")
+        end
         gs:FinishSpawningActor(a, xform, 0)
         spawned = a
     end)
 
     if not ok then
-        if not spawnFailLogged then
+        if cfg.Verbose or not spawnFailLogged then
             spawnFailLogged = true
             log("spawn failed for " .. e.cn .. ": " .. tostring(err))
         end
@@ -942,7 +960,20 @@ local function tick()
     local spawnBudget = 3
 
     for key, e in pairs(pending) do
-        if now >= e.due then
+        -- Only act on a spot a player is next to, and only once that area has had a scan
+        -- to settle. A spot nobody is near is usually streamed out: the 2026-11-04 trace
+        -- showed spawns there coming back invalid, and its husk (if any) is not in view
+        -- to be restored in place. Swimming back in, the area streams its actors over a
+        -- moment, so the first scan in range can still be missing the original. Waiting
+        -- for a second scan in a row keeps us from stacking a spawn on top of it. Past-due
+        -- entries simply wait; they fire within a scan or two of a player arriving.
+        if isNear(e.x, e.y, e.z) then
+            e.nearScans = (e.nearScans or 0) + 1
+        else
+            e.nearScans = 0
+        end
+
+        if now >= e.due and e.nearScans >= SETTLE_SCANS then
             local settled = true
             if standing[key] then
                 -- The area re-streamed the original back on its own; nothing to do.
@@ -966,20 +997,35 @@ local function tick()
                 if flagged[key] then
                     pcall(function() flagged[key]:K2_DestroyActor() end)
                 end
-                pcall(spawnReplacement, e)
+                local okS, spawnedOk = pcall(spawnReplacement, e)
 
-                -- Record the spot as occupied RIGHT NOW. The scan that builds `snapshot`
-                -- ran before this spawn, so without this the new node is invisible to the
-                -- next scan's "what disappeared?" check — and a player who harvests it
-                -- before the next scan (5s) would kill the spot forever. That is what
-                -- made a spot stop respawning after a round or two.
-                snapshot[key] = {
-                    cn = e.cn, clsPath = e.clsPath, static = e.static,
-                    x = e.x, y = e.y, z = e.z,
-                    pitch = e.pitch, yaw = e.yaw, roll = e.roll,
-                    sx = e.sx, sy = e.sy, sz = e.sz,
-                }
-                watched[key] = snapshot[key]
+                if okS and spawnedOk then
+                    -- Record the spot as occupied RIGHT NOW. The scan that builds
+                    -- `snapshot` ran before this spawn, so without this the new node is
+                    -- invisible to the next scan's "what disappeared?" check — and a
+                    -- player who harvests it before the next scan (5s) would kill the spot
+                    -- forever. That is what made a spot stop respawning after a round or
+                    -- two.
+                    snapshot[key] = {
+                        cn = e.cn, clsPath = e.clsPath, static = e.static,
+                        x = e.x, y = e.y, z = e.z,
+                        pitch = e.pitch, yaw = e.yaw, roll = e.roll,
+                        sx = e.sx, sy = e.sy, sz = e.sz,
+                    }
+                    watched[key] = snapshot[key]
+                else
+                    -- A failed spawn used to be forgotten here, and the spot with it.
+                    -- Keep it queued and try again shortly; give up only after repeated
+                    -- failures with a player right there (class gone for good, say).
+                    e.fails = (e.fails or 0) + 1
+                    if e.fails < SPAWN_RETRIES then
+                        settled = false
+                        e.due = now + SPAWN_RETRY_SECS
+                    else
+                        log(string.format("giving up on %s at (%.0f, %.0f, %.0f) after %d failed spawns",
+                            e.cn, e.x, e.y, e.z, e.fails))
+                    end
+                end
             else
                 settled = false   -- out of budget this scan; leave it queued
             end
