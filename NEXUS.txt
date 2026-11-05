@@ -6,7 +6,7 @@
 
 In Subnautica 2, loose pickups and wildlife slowly respawn on their own, but mined ore nodes are finite — the game wants you to farm those with a Metal Farm. [b]Resource Respawn[/b] gives every gathered resource a second life on a cooldown [b]you[/b] control, so your favourite spots never truly run dry. ♥
 
-Everything is configurable from one small settings file, and [url=https://www.nexusmods.com/subnautica2/mods/34]UE4SS Mod Manager[/url] can edit it for you with a click. No code knowledge needed.
+Everything is configurable [b]in-game[/b] with [url=https://www.nexusmods.com/subnautica2/mods/523]Mod Settings Lite[/url], or from one small settings file that [url=https://www.nexusmods.com/subnautica2/mods/34]UE4SS Mod Manager[/url] can edit for you with a click. No code knowledge needed.
 
 [size=4][color=#FF4D6D][b]♥ What's new in 2.1.1[/b][/color][/size]
 [list]
@@ -54,22 +54,22 @@ And everything from 2.0 still holds: deposits, loose pickups and water slugs all
 [size=4][color=#FF4D6D][b]♥ Requirements[/b][/color][/size]
 [list]
 [*][url=https://github.com/UE4SS-RE/RE-UE4SS]UE4SS[/url] for Subnautica 2[/*]
-[*][url=https://www.nexusmods.com/subnautica2/mods/34]UE4SS Mod Manager[/url]: optional, the easiest way to change the settings (Configure mod button)[/*]
+[*][url=https://www.nexusmods.com/subnautica2/mods/523]Mod Settings Lite[/url]: optional, adds an in-game menu for this mod (Settings → Mods)[/*]
+[*][url=https://www.nexusmods.com/subnautica2/mods/34]UE4SS Mod Manager[/url]: optional, edits the settings file with a click (Configure mod button)[/*]
 [/list]
 
 [size=4][color=#FF4D6D][b]♥ Installation[/b][/color][/size]
 [list=1]
 [*]Install UE4SS for Subnautica 2.[/*]
 [*]Install this mod with Vortex, or extract the [b]ResourceRespawn[/b] folder into [i]...\Subnautica2\Binaries\Win64\ue4ss\Mods\[/i].[/*]
-[*](Optional) Install UE4SS Mod Manager to change the settings with a click.[/*]
+[*](Optional) Install Mod Settings Lite for an in-game menu, or UE4SS Mod Manager to change the settings file with a click.[/*]
 [/list]
 
 [size=4][color=#FF4D6D][b]♥ Configuration[/b][/color][/size]
-All settings live in [i]...\Subnautica2\Binaries\Win64\ue4ss\Mods\ResourceRespawn\Scripts\config.lua[/i]. Restart the game after a change.
 [list]
-[*][b]With UE4SS Mod Manager:[/b] click [b]Configure mod[/b] next to ResourceRespawn, change the values, save.[/*]
-[*][b]By hand:[/b] open config.lua in Notepad. Each setting has a short description right above it. For example [i]RespawnSeconds = 120[/i] sets the timer, and [i]Copper = false[/i] stops Copper from respawning.[/*]
-[*][b]Still have Mod Settings installed?[/b] Its in-game menu keeps working and overrides config.lua.[/*]
+[*][b]In-game (easiest):[/b] with [url=https://www.nexusmods.com/subnautica2/mods/523]Mod Settings Lite[/url] installed, open [b]Settings → Mods → Resource Respawn[/b]. Toggle each resource and drag the respawn-time slider; changes apply within about 20 seconds, no restart needed. Menu values take priority over config.lua. (The original Mod Settings menu works the same way if you still have it.)[/*]
+[*][b]With UE4SS Mod Manager:[/b] click [b]Configure mod[/b] next to ResourceRespawn, change the values, save, then restart the game.[/*]
+[*][b]By hand:[/b] open [i]...\Subnautica2\Binaries\Win64\ue4ss\Mods\ResourceRespawn\Scripts\config.lua[/i] in Notepad. Each setting has a short description right above it. For example [i]RespawnSeconds = 120[/i] sets the timer, and [i]Copper = false[/i] stops Copper from respawning. Restart the game after a change.[/*]
 [/list]
 
 [size=4][color=#FF4D6D][b]♥ Known Issues[/b][/color][/size]

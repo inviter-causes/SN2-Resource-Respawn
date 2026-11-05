@@ -13,8 +13,10 @@ Later the same day the 2.1.1 changelog was added in Logs (verified at the top) a
 reply to modsyouknow was posted (verified). **All Nexus steps are done.**
 `drafts-2.1.1.txt` was deleted, as with 2.1.0. The command center's `STATUS.md` is not
 on this PC (only `Bon-Skill-Manager-Archived` exists), so it was not updated.
-Next up: once Mod Settings Lite has its own Nexus page, add it to RR's Requirements as
-optional. That is a text edit to NEXUS.txt; no new upload is needed.
+Mod Settings Lite went live on 2026-11-05 at https://www.nexusmods.com/subnautica2/mods/523
+(v0.3.0 Beta). NEXUS.txt now links it: intro line, Requirements (optional),
+Installation step 3, and Configuration (in-game menu first, changes apply in ~20s).
+⏳ Bon pastes the updated NEXUS.txt over the live description; no new file upload.
 
 ## Earlier today: v2.1.1 ready, waiting for Bon to upload (2026-11-05)
 

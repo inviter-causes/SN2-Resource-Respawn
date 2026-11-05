@@ -88,8 +88,12 @@ Atacamite, Celestine, Conduit Crystal, Creature Enamel, Axum Bacterial Culture, 
   scalars only and skips nested tables. Developer flags therefore live in a nested
   `Dev = { ... }` table. The 2.1.0 layout (nested `Resources = {}`, flags at top level)
   is still honoured. `tests/run.py` checks the Mod Manager view.
-- **SN2ModSettings** (removed from Nexus by its author): if it is still installed, the mod
-  registers its in-game menu at startup, and the menu values override `config.lua`.
+- **In-game menu:** [Mod Settings Lite](https://www.nexusmods.com/subnautica2/mods/523)
+  (Bon's clean-room replacement, repo `SN2-Mod-Settings`, Beta), or the original
+  SN2ModSettings if still installed (removed from Nexus by its author). Either one leaves
+  `ue4ss/Mods/SN2ModSettings/enabled.txt` in place, so `writeRegistration` writes the
+  menu manifest at startup. The menu's saved values override `config.lua` and are re-read
+  every 20s (`SETTINGS_TTL`), so menu changes need no restart.
 
 ## Localization
 
