@@ -34,17 +34,33 @@ Last updated: 2026-11-05
   TArray<FUWESeededResourceInfo>`, i.e. the game's **seed list** of original resource spots
   (`UUWEWorldPop2BlueprintFunctionLibrary::GetAllResources…Filtered` with
   `FUWEWorldPop2Query{IncludedClasses = filter's WorldPopResourcesToFind, OnlyActive}`), not
-  live actors. Once a spot is mined the game marks its seed GUID gathered in native,
-  non-reflected storage; our spawned node is a new actor that isn't tied to that seed, so the
-  spot stays "gathered" for the scanner. (Same reason v1's `newGuid` made re-streamed nodes
-  come back: the gathered mark is keyed by `ResourceId`.) Signals
-  (`SN2BaseScannerStationSignalsSubsystem`) are for wrecks/POIs, not resources.
-  **Untested fix idea:** snapshot the node's `ResourceId`, set it on the deferred spawn
-  before `FinishSpawningActor`, then `bHasBeenGathered = false` + `OnRep_HasBeenGathered()`
-  in case that broadcasts `OnResourceGathered(actor, false)` and clears the mark. Check with
-  `GetAllResourcesInRangeOfLocationFiltered(OnlyActive = true)` before/after, no station
-  needed. Risks: a node spawned with a gathered GUID may hide itself at BeginPlay, and if the
-  mark clears, the game may spawn its own copy on re-stream (duplicate).
+  live actors. Once a spot is mined the game marks its seed GUID gathered; our spawned node
+  is a new actor that isn't tied to that seed, so the spot stays "gathered" for the scanner.
+  (Same reason v1's `newGuid` made re-streamed nodes come back: the mark is keyed by
+  `ResourceId`.) The Axum cage is different: it carries a
+  `SN2BaseScannerStationSignalComponent`, so it reaches the scanner through the signals
+  subsystem and a mod-spawned Axum may already show up. Check it.
+  - **The game has its own resource respawn, all reflected (Lua can read/write it):**
+    `UUWEWorldPopResourceDA.TimeToRespawnSeconds` per resource type, and
+    `UUWEWorldPopSubsystem` (server world subsystem) with `ResourcesToRespawn: TSet<FGuid>`,
+    `RespawnTimers: TMap<FGuid,float>`, `PendingRespawnActors`, and the gathered marks
+    `ResourceInstanceGatherStates: TMap<FGuid,uint8>`. The exe logs
+    "Resource %s gathered with respawn time %f". This UE4SS build has Lua TMap/TSet types.
+    `wpop.WPop2RespawnCooldownSeconds` is creatures only.
+  - **Test tooling found:** `USN2CheatManager` (CheatManagerEnablerMod is on) has
+    `LoadGame(Slot, Checkpoint)`, `ContinueGame()`, `SaveGame(Index)`, `Warp(X,Y,Z)`,
+    `FreeBuild`, `Give`, so an agent can load a save, teleport and build a station without
+    menu clicks. Only the harvest itself needs computer-use. `KismetSystemLibrary:QuitGame`
+    from Lua exits the game cleanly (used for the header dump).
+  - **Plan (2026-11-05, awaiting Bon's go):** temporary lab mod in the game folder driven by
+    a command file; work on a copy of savegame_8. Step 1 read-only: DAs and their respawn
+    times, subsystem map sizes and gather-state values, nearby actors' `ResourceId` vs the
+    seed list, the scanner-style query. Step 2: set one type's `TimeToRespawnSeconds` = 30
+    with RR off, harvest, watch the timers, see if the game respawns it (live? after
+    re-stream? after save/load? duplicates?). If native respawn works, RR v3 just sets the
+    respawn times (fixes scanner, saves and co-op at once). If not, keep spawning but give
+    the new node the seed `ResourceId` and reset its gather state, then test for duplicates.
+    Otherwise, document it as a limitation.
 
 - **Co-op on two PCs: never tested.** 2.1.1 assumes a deposit the host spawns replicates
   to clients (the bug report suggests it does). If not, the fallback is the
