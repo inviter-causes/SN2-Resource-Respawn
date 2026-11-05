@@ -1,303 +1,151 @@
 # Progress / Handoff
 
-Last updated: 2026-11-04
+Last updated: 2026-11-05
 
-## Current state: v2.1.1 LIVE on Nexus (2026-11-05 12:31), tag `v2.1.1` pushed
+## Current state: v2.1.1 LIVE on Nexus, nothing in flight
 
-Checked on the live page: version field 2.1.1; file "ResourceRespawn 2.1.1" uploaded as an
-update of the 2.1.0 file, with 2.1.0 archived (Vortex update notices work); the zip
-content matches the repo byte for byte; the description is the new NEXUS.txt; the short
-description has been updated; requirement is UE4SS SN2 (min 3.0.1) only; the
-"v2.1.1 is out!" post is pinned; the reply to Fe1eNinamu24 is posted.
-Later the same day the 2.1.1 changelog was added in Logs (verified at the top) and the
-reply to modsyouknow was posted (verified). **All Nexus steps are done.**
-`drafts-2.1.1.txt` was deleted, as with 2.1.0. The command center's `STATUS.md` is not
-on this PC (only `Bon-Skill-Manager-Archived` exists), so it was not updated.
-Mod Settings Lite went live on 2026-11-05 at https://www.nexusmods.com/subnautica2/mods/523
-(v0.3.0 Beta). NEXUS.txt now links it: intro line, Requirements (optional),
-Installation step 3, and Configuration (in-game menu first, changes apply in ~20s).
-Bon pasted it the same day; the live page has all 4 spots and 3 links to mods/523 (verified).
+- **Released:** v2.1.1 on [Nexus mods/420](https://www.nexusmods.com/subnautica2/mods/420),
+  2026-11-05 12:31. Tag `v2.1.1` pushed. Working tree clean.
+- **Live page verified by the agent:** version 2.1.1; the file is an *update* of the 2.1.0
+  one (2.1.0 archived, so Vortex shows an update); the zip matches the repo byte for byte;
+  the description is `NEXUS.txt`; the short description is updated; the only requirement
+  is UE4SS SN2 (min 3.0.1); the changelog is in Logs; the "v2.1.1 is out!" post is pinned;
+  replies to Fe1eNinamu24 and modsyouknow are posted; 3 links to Mod Settings Lite.
+- **`NEXUS.txt` mirrors the live description again.** If you edit it, Bon pastes it onto
+  the page; no new upload is needed for text-only changes.
+- **Mod Settings Lite** (Bon's clean-room SN2ModSettings replacement, repo
+  `D:\Personal\SN2-Mod-Settings`, private) went live 2026-11-05 at
+  [mods/523](https://www.nexusmods.com/subnautica2/mods/523), v0.3.0 Beta. RR works with it
+  unchanged: its compat folder `ue4ss/Mods/SN2ModSettings/enabled.txt` triggers
+  `writeRegistration`. Its own repo and session own its progress.
+- **Command center:** `../Bon-Dev-Hub` (formerly Bon-Skill-Manager). Its STATUS.md has the
+  2026-11-05 entry for both repos; its registry is `repos.personal.json`.
+- **Trussel:** every RR job is a card on KBEONN › Subnautica › Resource Respawn
+  (`da97e81a-1b9b-4401-bd15-2ee70c2f932d`), dated the day it's finished. SUB-4458..4512,
+  all Done. `delegate_task` / `report_step` get blocked by the permission classifier;
+  create, comment, update and status changes work.
 
-## Earlier today: v2.1.1 ready, waiting for Bon to upload (2026-11-05)
+## Open items (no commitments)
 
-- **Release plan (Bon approved 2026-11-05):** ResourceRespawn 2.1.1 ships first, with no
-  settings-mod dependency (UE4SS Mod Manager covers easy config). The new settings menu
-  from the SN2-Mod-Settings session ships later as its own Nexus page, marked Beta, once
-  its 3 must-fix items are done. After that, RR's page lists it as an optional
-  requirement (a text-only edit, no new upload).
-- **Upload kit:** `drafts-2.1.1.txt` has the step list plus paste-ready English text:
-  brief overview, Nexus changelog, pinned comment, and replies to modsyouknow and
-  Fe1eNinamu24. `NEXUS.txt` is the full description. The zip was rebuilt from `b901598`+.
-  Delete the drafts file once everything is live (as done for 2.1.0).
-- **Verified:** in game on 2026-11-05 (Axum near/far, streaming ignored, load-restored
-  husk not re-harvested), plus 96 mock tests. Not verified: a real co-op session on two
-  PCs.
+- **Co-op on two PCs: never tested.** 2.1.1 assumes a deposit the host spawns replicates
+  to clients (the bug report suggests it does). If not, the fallback is the
+  `ServerExecRPC` / `ClientMessage` pattern (see the PaintBrush mod). Waiting on player
+  reports; Fe1eNinamu24 was asked.
+- **Vortex restore:** Bon wants it "later". The backup is
+  `V:\04_Hobby\Game-Mods\SN2_Backup_2026-06-30` (see its README.txt). In Vortex, disable
+  UE4SS EA1, both old ResourceRespawn entries, and SN2ModSettings (it clashes with Mod
+  Settings Lite) before deploying. The mods are June versions, so check Nexus for updates.
+  Don't copy the June saves over the current ones. Mod inventory at backup time: 17
+  enabled, 1 disabled (RR 1.0.0), 12 removed (empty leftover folders).
+- **README note out of date:** "the game never sets bHasBeenGathered on nodes the mod
+  spawns" is false at least for Axum (the 2026-11-05 trace showed flags set).
+- **Startup log lines missing:** `ready v2.1.1` / `settings:` don't appear in UE4SS.log
+  even though the mod runs. Cosmetic; maybe UE4SS log timing.
+- **Yield variance:** declined; the roll belongs to the game's blueprint.
+- **v-next idea:** hook the harvest event instead of polling `FindAllOf` (the 27-43ms scan).
 
-- **Code:** v2.1.1 committed and pushed on `main`. **No tag yet.** Tag `v2.1.1` only once
-  Bon has uploaded it.
-- **Zip:** `ResourceRespawn-2.1.1.zip` was built in the repo root by `./package.sh 2.1.1`.
-  It is git-ignored; rebuild with the same command if it is missing.
-- **Tests:** 76 mock tests green (38 main, 35 catalog, 3 for config.lua as Mod Manager
-  sees it). A mutation check (client gate switched off) makes the 5 co-op tests fail, so
-  they really bite.
-- **Installed on this PC (2026-11-04):** UE4SS `UE4SS_v3.0.1-1028-gd7e7826d.zip`, from the
-  official UE4SS-RE GitHub "experimental" release. That is the same commit Nexus mods/36
-  ships, and its file list and sizes match the Nexus preview. SHA-256 `342d893c...c2c0b`.
-  It was extracted into `A:\SteamLibrary\...\Binaries\Win64`, and `./deploy.sh` put 2.1.1
-  in `ue4ss\Mods\ResourceRespawn`. Its UEHelpers has `GetAllPlayers` (via
-  GameState.PlayerArray → PawnPrivate) and `GetKismetSystemLibrary`, and
-  `GetWorldContextObject` returns the UWorld. All three match what 2.1.1 assumes.
-- **Not verified:** the game has not been launched yet. Next: launch, load a save, check
-  `ue4ss\UE4SS.log` for `ready v2.1.1` and for errors, confirm single-player still
-  respawns, and confirm UE4SS Mod Manager's Configure window lists the 19 settings.
-  Ideally also one co-op session on two PCs, to confirm the host's spawned deposit shows
-  up for the client and can be mined.
-- **`lang_local.lua` (personal Thai menu text) is gone:** it lived only in the old game
-  folder on C:, which no longer exists, and it was never in git. Not needed for release.
-- **`NEXUS.txt` is staged for 2.1.1** and no longer mirrors the live page until Bon
-  uploads. Holding replies to modsyouknow / Fe1eNinamu24 plus a general post were drafted
-  in chat on 2026-11-04 (Trussel card SUB-4466).
-- **Trussel:** work is now tracked on the KBEONN board Subnautica > Resource Respawn
-  (SUB-4458..4467, history backfilled with real dates). Bon asked for every job to get a
-  card there, dated the day it is finished.
-- **Command center `STATUS.md`:** `../Bon-Skill-Manager` is not on this PC, so it is not
-  updated. Do it at release time.
+## What 2.1.1 changed (and why)
 
-## Axum bug: FIXED and verified in game (SUB-4488, Done 2026-11-05)
+Triggered by two Nexus reports on 2026-11-04. modsyouknow: SN2ModSettings (mods/20) was
+removed by its author, so there's no easy config. Fe1eNinamu24: co-op shows a ghost node
+that won't break, and Axum disappears after respawning (solo and co-op).
 
-In-game test on 2026-11-05 (09:53-10:12, savegame_8). The agent drove the game itself via
-computer-use and granted the game by its exe path
-(`A:\SteamLibrary\...\Win64\Subnautica2-Win64-Shipping.exe`). The Axum is broken with the
-**Sonic Resonator** (hotbar slot 5): hold left mouse ~3s, release. The pause menu shows
-the player's coordinates.
-- **Test A, staying near:** harvested at 09:56:32. Spawned at 09:57:02, and `TRACE spawned
-  ... is in the engine's list`. Seen standing next scan, no re-queue.
-- **Test B, leaving range:** harvested at 10:07:47, then swam straight up to 242m (about 240m
-  above the cage). It came due at 10:09:47 and nothing fired while away. Back down, the
-  game streamed the cage in as a gathered husk (`gathered=true destroyed=false`). Two
-  scans later the mod restored it in place (10:11:07), the culture was visible, and it
-  broke normally again.
-- **The in-place restore works for Axum:** on every load the flagged cage was restored
-  (refill-on-load) and was full and harvestable. Hypothesis 2 (newGuid empties the cage)
-  is disproved.
-- **Mod-spawned cages do get flags:** harvesting a cage the mod spawned showed
-  `gathered=true destroyed=true` for ~20-30s before it went `gone`. The README note
-  "the game never sets bHasBeenGathered on nodes the mod spawns" is out of date, at least
-  for Axum.
-- The log had 0 errors; 3 spawns, all confirmed in the engine's list, 0 removed.
-- The game copy is back to normal: `./deploy.sh` restored config.lua (no TEST lines), and
-  the menu-saved `SN2ModSettings/saved/ResourceRespawn.lua` is at RespawnSeconds = 120.
+- **Co-op:** `isNetClient()` = `KismetSystemLibrary:IsServer(world) == false`. A client
+  returns before scanning and drops `snapshot` / `pending` / `watched` / `dyingSeen`.
+  Unknown means not-a-client, which keeps solo behaviour unchanged.
+- **Every player's range:** `playerPositions()` via `UEHelpers.GetAllPlayers()` (game-state
+  player list, cheap), falling back to the local player. `isNear` = within 150m of any
+  player.
+- **Lost spots (the Axum bug):** due respawns fired with nobody near, the engine refused
+  them (UE4SS returns an invalid object with address 0, not nil), and the mod counted that
+  as done and forgot the spot. Now a due entry fires only after a player has been near for
+  `SETTLE_SCANS = 2` scans; an invalid/0-address spawn is a failure, retried every 10s,
+  dropped after 6 tries.
+- **Stacked duplicates, 3 causes:** (a) streaming: a node leaving FindAllOf while you're
+  inside 150m was counted as harvested. Now `wasHarvested` requires the node to have been
+  *seen breaking* (`dyingSeen`, recorded only if the spot was standing on the previous
+  scan and cleared when it stands again; 120s TTL) or a player within `HARVEST_RANGE = 50m`.
+  (b) Turning a resource OFF made its nodes look harvested; now disabled resources are
+  skipped and their queue entries dropped. (c) Recycled actor address: a fresh node
+  inherited a far actor's cached position; `spawnReplacement` now seeds `locCache`.
+- **config.lua flattened** so UE4SS Mod Manager's "Configure mod" lists all 19 settings
+  (it only reads top-level scalars with the comment line directly above). Dev flags live
+  in `Dev = {}`, lifted onto `cfg`. The 2.1.0 layout (`Resources = {}`) still works. New
+  `Enabled` switch.
+- **Diagnostics (dev only):** `Dev.Trace = "<class substring>"` logs `TRACE
+  seen/change/gone` per actor address, and whether each spawned address is in the
+  engine's list on the next scan. `package.sh` refuses to build with Trace set or any
+  dev flag true.
+- **deploy.sh:** finds the game on `A:\SteamLibrary`, warns if UE4SS is missing, and exits
+  1 when nothing was deployed.
+- **Tests:** 96 mock tests (`tests/run.py`: 58 main, 35 catalog, 3 for config.lua as
+  Mod Manager sees it). Each fix was mutation-checked: switching it off makes its tests
+  fail.
 
-**FIXED and re-checked in game (SUB-4507, 2026-11-05).** Re-check 1 (10:31) caught a hole
-in the first version: a husk handed back already gathered by a save load was recorded as
-"seen breaking". It was restored in place, then streamed out within 120s while the
-player swam away, and got counted as a harvest. Fix: `dyingSeen` is only recorded when
-the spot was in `snapshot` (standing on the previous scan), and is cleared whenever the
-spot is seen standing again. Test: end of section 17 (it fails with both guards removed).
-Re-check 2 (10:38-10:40, fresh launch): the four streamed-out nodes logged `ignored ...
-streamed out`, the load-restored Axum streamed out without being queued, and there was
-no false `queued` at all. A real harvest after that could not be done, because the game
-stopped taking synthetic key/mouse input (tool switch, menus). It is covered by the 50m
-rule (real harvests happen within a few metres) and by section 17. 96 tests green.
-Computer-use tip for this game: hover before clicking (mouse_move near, then onto the
-button, then press). Instant clicks often don't register in the menus.
+## Verified in game (2026-11-05, agent drove the game via computer-use)
 
-Details of the first version: `wasHarvested(key, e)` is
-true only if the node was seen breaking (`dyingSeen[key]`: set in processNode when an
-enabled resource reads `destroyed` or `gathered` true; keyed from the cached position;
-kept for `DYING_TTL = 120s`), or a player is within `HARVEST_RANGE = 50m`. Both the
-snapshot check and the `watched` backstop use it. With Verbose on, a vanish that does
-not count logs `ignored X — gone without being harvested (streamed out)`. Tests: section
-17 (streamed out → no respawn, no duplicate; seen breaking at 100m → respawns).
-Sections 14-16 moved their nodes inside 50m. A mutation back to the old 150m rule fails
-section 17. 95 tests green. An in-game re-check was attempted on 2026-11-05, but the game
-stopped taking synthetic clicks on the save menu, so it is still to do: swim around with
-Verbose, expect `ignored ... streamed out` lines instead of false `queued`, and check a
-real harvest is still caught.
+- **Axum near:** harvest → back 30s later, confirmed in the engine's list, no re-queue.
+- **Axum far:** harvest, swim up 240m, timer passes and nothing fires; come back, the game
+  streams in the gathered husk, and the mod restores it in place after 2 scans; harvestable.
+- **Load-restored husks:** full and harvestable. Once restored, streaming out no longer
+  re-queues them.
+- **Swimming around:** streamed-out nodes log `ignored ... streamed out`; no false `queued`.
+- **Not done in game after the final fix:** a real harvest, because the game stopped
+  accepting synthetic input. Covered by the 50m rule and section 17.
 
-Original note: **streaming looks like harvesting.** While just swimming, the mod queued
-nodes nobody touched (titanium, clinker, a slug, celestine). They dropped out of
-FindAllOf while still within 150m (world streaming), and the absence check reads that as
-a harvest. Most were later `skipped — a node is already there` once the original was back
-in view. But one celestine fired with `husk in view: false` while near, so a duplicate
-can get stacked when the original streams back in. This is also a plausible part of the
-co-op "double resources" report. Fix idea: only count an absence as a harvest if the
-node was seen dying first (`destroyed`/`gathered` true on an earlier scan; harvested
-nodes linger ~20-30s like that), or if a player was within real harvest range (~50m) when
-it vanished. Apply the same rule to the `watched` backstop.
+## This machine (Windows, games box)
 
-## Earlier notes on the Axum bug (history)
-
-Fe1eNinamu24 reported this on Nexus at 2026-11-04 14:12. They harvest the culture, wait out
-the timer, and when they get close it's gone, in solo and in co-op alike. Axum is
-`AxumBioprintCulture_Cage`, which is not a `resourcedeposit`/`resourcenode`, so
-`static = false`: the mod restores it in place (`bringBack`: new random ResourceId, clear
-the flag, OnRep) whenever the husk is in view, and spawns a fresh one otherwise.
-
-**Found and fixed (2026-11-04, from the first trace run, `UE4SS.log` 14:43-14:51):**
-- Axum near the player works fine. Harvesting sets the cage to `gathered=true
-  destroyed=true`, and it lingers about 30s before the actor goes away. So it actually
-  takes the absence → spawn path, not the in-place one. It respawned twice in a row with
-  Bon standing there. Hypothesis 2 below is therefore moot for Axum.
-- The real bug: due respawns fired with `player near the spot: false`, and 9 of them got
-  back `new addr=0`. UE4SS returns an invalid object, not nil, when the engine refuses the
-  spawn. The mod counted that as done, set `snapshot`/`watched`, and settled the pending
-  entry. On return the spot was empty and never queued again. This is not Axum-specific
-  (silver and slugs were hit too); Axum is just rare enough that people notice.
-- Fix: a due entry fires only after a player has been near the spot for `SETTLE_SCANS = 2`
-  scans in a row. `spawnReplacement` treats an invalid or 0-address result as a failure,
-  and failures are retried every 10s, giving up only after 6 tries with a player present.
-  Tests: section 14, and a mutation check of both fixes bites. The harness now puts
-  spawned replacements into the mock world, and `quiesce` drains the queue near the
-  origin, because walking away no longer drains it.
-- Still to see in game: scenario B (harvest, swim more than 200m away, come back) with
-  the fix in place.
-- Side note: the log has no `ready v2.1.1` / `settings:` startup lines, even though the
-  mod clearly ran. Worth a look; it may be UE4SS's log timing at startup.
-
-**Second run (15:02-15:06), driven by the SN2-Mod-Settings session, not Bon:** an Axum
-went `gone` at 15:04:58, was respawned at 15:05:28 near the player, and its spot was
-re-queued at 15:05:33 because the new cage was not seen. The log is missing lines (a
-`gone` with no earlier `seen`, which the code cannot produce; the game was still running,
-so the file was likely not fully flushed). So it cannot say whether the game deleted the
-cage or the mod failed to see it.
-- **Fixed regardless:** positions are cached by actor address for up to 60s, and the
-  engine recycles addresses. A replacement could inherit a far actor's stale position,
-  look out of range, and get a second node stacked on it. `spawnReplacement` now seeds
-  `locCache[newAddr]` with the spawn position. Test: section 15; the mutation check bites.
-- **New trace:** with `Dev.Trace` set, every spawned address is checked on the next scan:
-  `TRACE spawned X addr=N is in the engine's list` or `is NOT in the engine's list
-  (removed already)`. That separates "the game deleted it" from "we missed it".
-- The harness's spawn mock now returns a real mock actor (its own address, can reuse
-  `world.recycleAddr`) and puts it into the world. 89 tests green.
-- **Why that log was missing lines** (reported by the settings session): a second game
-  instance started while the first was running (`steam://rungameid`), and it overwrote
-  the head of `UE4SS.log`. Lines 1-48 of that file are from the second instance. Only
-  trust a log from a single clean game launch, read after the game exits.
-- **Toggle bug fixed (from the same run):** switching a resource OFF in the menu drops its
-  nodes from `standing`, so the snapshot check queued every intact one as "harvested". If
-  it was still OFF when they came due, the pending loop (which ignored the enabled list)
-  would spawn a second node on top of each. Now the snapshot check skips disabled
-  resources, and the pending loop drops entries whose resource is off. Test: section 16;
-  the mutation check bites. 92 tests green.
-- The settings session's compat folder `ue4ss/Mods/SN2ModSettings/enabled.txt` makes RR
-  read `SN2ModSettings/saved/ResourceRespawn.lua` whenever it exists, overriding
-  config.lua. That is why the 15:02 run briefly used 120s.
-
-Original hypotheses, kept for the record:
-1. **The timer fires while the player is far away.** The pending loop fires on time
-   regardless of distance. With the husk out of view it spawns a new cage into an area
-   that isn't loaded, while the old gathered cage still exists. On return, both stream in
-   at the same spot. Candidate fix: only fire a due entry once a player is near the spot
-   AND has been near on two scans in a row (area settled). That way the real husk is in
-   view and gets restored in place, instead of a duplicate being spawned.
-2. **Clearing the flag in place leaves the cage empty.** If the cage uses its ResourceId
-   to decide its contents, `newGuid()` would leave it empty.
-
-**Diagnostics added (dev only, off in releases):** `Dev.Trace = "axum"` logs `TRACE
-seen/change/gone` per actor address. Verbose now logs the new address of each spawned or
-restored actor, plus `due: spawning ... (player near the spot, husk in view)`.
-`package.sh` refuses to build with Trace set.
-
-**The game copy is in TEST mode right now:** `RespawnSeconds = 30`, `Verbose = true`,
-`Trace = "axum"`, all marked `-- TEST (Axum bug)` in the deployed `config.lua`. The repo
-copy is clean. Restore the game copy by running `./deploy.sh` after the test.
-
-Test for Bon. Scenario A: harvest and stay within 100m for 1 minute. Scenario B: harvest,
-swim more than 200m away for 1 minute, then come back. Note in each case whether the culture
-is there and can be harvested, then read `ue4ss/UE4SS.log`.
-
-## What changed in 2.1.1
-
-- **Co-op:** `isNetClient()` asks `UEHelpers.GetKismetSystemLibrary():IsServer(world)`.
-  On a client, `tick` returns before scanning and drops `snapshot` / `pending` /
-  `watched`, so nothing fires later back in single player. If the question can't be
-  answered, it assumes not-a-client, which keeps solo behaviour unchanged.
-- **Range from every player:** `playerPositions()` uses `UEHelpers.GetAllPlayers()` (the
-  game state's player list, cheap; no extra FindAllOf walk) and falls back to the local
-  player. All three distance checks go through `isNear`.
-- **config.lua:** player settings and the 16 resource toggles are top-level, each with a
-  one-line comment directly above it. Dev flags moved into `Dev = {}`, which main.lua
-  lifts onto `cfg`. The old nested `Resources = {}` still works via `cfgResource()`. New
-  `Enabled` master switch.
-- **deploy.sh:** tries the `A:\SteamLibrary` path first, warns when UE4SS is missing, and
-  exits 1 when nothing was deployed.
-- **This PC:** Python 3.12 was installed with winget (user scope) at
-  `C:\Users\Bon\AppData\Local\Programs\Python\Python312`, with `lupa` installed via pip.
-  It is not on Git Bash's PATH. Use the full path, or
+- Game: `A:\SteamLibrary\steamapps\common\Subnautica2` (Steam app 1962700). Saves:
+  `%LOCALAPPDATA%\Subnautica2\Saved\SaveGames`; `savegame_8` is the test save, standing
+  next to an Axum at 481m.
+- UE4SS **d7e7826d** installed (GitHub "experimental" build, byte-identical to Nexus mods/36,
+  sha256 `342d893c…c2c0b`). Game copy of RR is normal (no TEST lines). The menu-saved
+  `ue4ss/Mods/SN2ModSettings/saved/ResourceRespawn.lua` has RespawnSeconds = 120, and it
+  overrides config.lua while it exists.
+- Python 3.12 at `C:\Users\Bon\AppData\Local\Programs\Python\Python312` (+ lupa, msgpack,
+  user site), not on Git Bash's PATH. Run tests with the full path; package with
   `PATH="/c/Users/Bon/AppData/Local/Programs/Python/Python312:$PATH" ./package.sh 2.1.1`.
+- The personal `lang_local.lua` (Thai menu) is gone; it lived only in the old C: game
+  folder.
 
-## Previous: v2.1.0 fully released
+## Traps
 
-- **GitHub:** commit `f571157` + `db2eaa0`, tag `v2.1.0`, pushed.
-- **Nexus (mod 420):** verified live 2026-07-28 — version field 2.1.0, new zip uploaded,
-  description and short description updated, changelog posted, 2.1.0 comment pinned,
-  replies to Fe1eNinamu24 and Pippymint posted, requirements note fixed.
-  All manual steps from the (now deleted) `drafts-2.1.0.txt` are done.
-- **In-game:** 2.1.0 deployed and tested. 59 mock tests green (`tests/run.py`).
-
-## What shipped in 2.1.0
-
-- Troilite respawns (Mineralized Clinker = `BP_ResourceDeposit_DeepRootResonatableResource_C`,
-  found via the dev-only catalog probe, `Scripts/catalog.lua`, `cfg.Catalog`)
-- Refill on load: flagged husk at a spot never seen intact this session gets a 15s grace
-- Respawned nodes keep their original scale
-- Slider retuned: 5s–10min, default 120s; scan-cost note in the menu (EN + Thai via lang_local)
-
-## 2026-11-04 triage (led to 2.1.1)
-
-Two new Nexus comments; the notes below are what 2.1.1 was built from.
-
-- **SN2ModSettings is gone.** Nexus mods/20 says "Removed by author". The author's GitHub
-  (JustChaldea) also 404s, so no source is available; there is no license to fork under.
-  New installs of Resource Respawn therefore run on `config.lua` only.
-  - Alternatives checked: **UE4SS Mod Manager** (mods/34, AtilioA/UE4SS-mod-manager)
-    has a "Configure mod" button that edits `Scripts/config.lua`. It only reads
-    **top-level scalar** lines (depth 1 of the returned table), uses the comment line
-    directly above a key as its description, and skips nested tables. So today it can
-    show `RespawnSeconds` / `RefillOnLoad`, but NOT the per-resource toggles (they live in
-    the nested `Resources` table), and it also shows the dev flags. Fix idea: flatten the
-    resource toggles to top level and move dev flags into a nested `Dev = {}` table, while
-    still reading the old layout.
-  - **SN2MS_REBORN** (github whagan1310-droid/SN2MS_REBORN): F7 overlay that reads the old
-    registration format, but bundles cheats + a `main.dll`, no license, 0 stars, last push
-    2026-08-30. Not recommended as a dependency.
-  - Mod Menu (mods/342) only covers its author's own mods. SN2 Mod Menu (mods/492) is a
-    cheat menu, not a settings framework.
-  - Option on the table: write our own settings menu (clean-room, same registration format
-    so old mods keep working). Big job; would help SN2-Haste and SN2-Mod-Template too.
-- **Co-op duplicate nodes** (Fe1eNinamu24, 2026-09-18): "double resources spawn, you break
-  one and can't break the other". Diagnosis: every player's copy of the mod spawns its own
-  replacement. The host's spawn replicates to clients (real, harvestable); the client's
-  own spawn exists only on that client (fake, can't be mined). Refill on load makes it
-  show up right as you enter an area. Fix plan: only act when
-  `KismetSystemLibrary:IsServer(world)` is true (host / solo); clients skip the scan
-  entirely. Also measure distance from every player's pawn on the host, not just the
-  host's, so spots near a client respawn too. Needs a real co-op test (two PCs).
-- **This PC:** the game is installed at `A:\SteamLibrary\steamapps\common\Subnautica2`, and
-  it has **no UE4SS installed**. `deploy.sh` still points at the old `C:\Program Files
-  (x86)\Steam` path, and the Vortex folder is gone. Latest UE4SS on Nexus mods/36 is commit
-  `d7e7826d` (2026-08-20, replaces 3.0.1). Mod 2.1.0 is untested on that build.
-
-## Open items (not started, no commitments)
-
-- **Co-op verification** of deposit spawning on two PCs (2.1.1 assumes that a deposit the
-  host spawns replicates to clients; the bug report suggests it does, but this is not
-  confirmed). If it does NOT replicate, the fallback is the `ServerExecRPC` /
-  `ClientMessage` pattern (see the PaintBrush mod) to tell clients where to spawn.
-- **Own settings menu:** a separate session is building a clean-room SN2ModSettings
-  replacement in `D:\Personal\SN2-Mod-Settings`. Once it ships, have ResourceRespawn
-  register with it too (today `writeRegistration` only writes when
-  `SN2ModSettings/enabled.txt` exists).
-- **Yield variance:** a respawned node rolls its own piece count. Investigated and
-  declined — the roll belongs to the game's blueprint. Documented on the page.
-- **v-next idea:** hook the harvest event instead of polling `FindAllOf` (the remaining
-  27–43ms scan hitch).
+- **computer-use in SN2:** grant the game by exe path
+  (`A:\SteamLibrary\...\Win64\Subnautica2-Win64-Shipping.exe`). Hover before clicking
+  (mouse_move near, then onto the button, then press): instant clicks often don't
+  register in menus. Moving the mouse turns the camera in game, so fire without moving.
+  The Axum needs the Sonic Resonator (hotbar 5; hold LMB ~3s). Up/down = Space/C; the pause
+  menu shows coordinates. After a while the game can stop taking synthetic input, and
+  only a restart fixes it. Quit through the in-game menu, not by killing the process.
+- **UE4SS.log** is overwritten on each launch, and by a second game instance
+  (`steam://rungameid` while running). Read it after a single clean launch, once the game
+  has exited.
+- **Shared game folder:** the SN2-Mod-Settings session also drives this game and writes
+  `SN2ModSettings/saved/ResourceRespawn.lua`. Coordinate before testing.
+- **Python on Windows** writes CRLF: write files as bytes / `newline="\n"`
+  (`.gitattributes` forces LF anyway). Backslash paths inside heredoc Python break on
+  `\U`; use raw strings or a script file.
 
 ## Working notes
 
-- The LIVE Nexus description is the source of truth; repo `NEXUS.txt` mirrors it.
-- Public text rules: no em dashes, changelogs are bullets only, marketing versions drop
-  the trailing .0 (v2.1) while files/tags keep full semver.
-- `lang_local.lua` (Thai via the fr slot) lives only in the game folder, never packaged.
-- Test with the lupa mock harness (`tests/run.py`, lua54 pinned) before any in-game test.
+- The LIVE Nexus description is the source of truth; `NEXUS.txt` mirrors it.
+- Public text rules: no em dashes in new text, changelogs are one line per entry (Nexus
+  adds the bullets; no "- "), marketing versions drop a trailing .0 (v2.1) while
+  files/tags keep full semver.
+- Release kit pattern: `drafts-X.Y.Z.txt` (steps in Thai + paste-ready English), deleted
+  once live. Nexus upload: "Update existing file" + "Archive existing file", file version =
+  the real version (it also sets the mod version), and fix the display name.
+- Bon is not a programmer and replies in Thai. Agents run everything; Bon only clicks
+  Nexus uploads/posts.
+
+## History
+
+- **2.1.1** (2026-11-05): see above.
+- **2.1.0** (2026-07-27/28): Troilite respawns (`DeepRootResonatableResource`, found with the
+  catalog probe), refill on load (15s grace), nodes keep scale, slider 5s-10min.
+- **2.0.1** (2026-07-19): periodic stutter fixed, batched spawns, stride scales with timer.
+- **2.0.0** (2026-07-14): mined deposits respawn live by spawning a new node.
+- **1.0.0** (2026-06-23): first release.
+- Alternatives checked when SN2ModSettings vanished (2026-11-04): UE4SS Mod Manager
+  (mods/34, adopted); SN2MS_REBORN (unlicensed, bundles cheats + a DLL; rejected); Mod
+  Menu mods/342 (its author's mods only); SN2 Mod Menu mods/492 (a cheat menu).
