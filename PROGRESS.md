@@ -16,7 +16,7 @@ on this PC (only `Bon-Skill-Manager-Archived` exists), so it was not updated.
 Mod Settings Lite went live on 2026-11-05 at https://www.nexusmods.com/subnautica2/mods/523
 (v0.3.0 Beta). NEXUS.txt now links it: intro line, Requirements (optional),
 Installation step 3, and Configuration (in-game menu first, changes apply in ~20s).
-⏳ Bon pastes the updated NEXUS.txt over the live description; no new file upload.
+Bon pasted it the same day; the live page has all 4 spots and 3 links to mods/523 (verified).
 
 ## Earlier today: v2.1.1 ready, waiting for Bon to upload (2026-11-05)
 
