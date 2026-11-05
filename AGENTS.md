@@ -1,13 +1,13 @@
 # AGENTS.md — SN2-Resource-Respawn
 
 กติกาสำหรับ **AI agent ทุกยี่ห้อ** (Claude Code / Codex) ที่เข้ามาทำงานใน repo นี้
-**กติกาฉบับเต็มอยู่ที่หอบังคับการ** → [`../Bon-Skill-Manager/AGENTS.md`](../Bon-Skill-Manager/AGENTS.md)
+**กติกาฉบับเต็มอยู่ที่หอบังคับการ** → [`../Bon-Dev-Hub/AGENTS.md`](../Bon-Dev-Hub/AGENTS.md) (เดิมชื่อ Bon-Skill-Manager — รวมเข้า Bon-Dev-Hub แล้ว)
 
 > **Bon ไม่ใช่โปรแกรมเมอร์ — agent ต้องรันคำสั่งให้เสมอ ไม่ใช่สอนให้รันเอง**
 
 ## repo นี้คืออะไร
 
-Mod **ResourceRespawn** ของ Subnautica 2 (UE4SS + Lua) — **ปล่อยจริงแล้ว v2.1.0**
+Mod **ResourceRespawn** ของ Subnautica 2 (UE4SS + Lua) — **ปล่อยจริงแล้ว v2.1.1**
 อยู่บน Nexus (mods/420) มีคนใช้จริง
 
 ## เริ่มงาน
@@ -19,7 +19,7 @@ Mod **ResourceRespawn** ของ Subnautica 2 (UE4SS + Lua) — **ปล่อ�
 ## จบงาน
 
 1. อัปเดต [PROGRESS.md](PROGRESS.md) — ทำอะไรไป / ทำไม / ค้างอะไร / กับดักที่เจอ
-2. ถ้าปล่อยเวอร์ชันใหม่: อัปเดต `CHANGELOG.md` + `NEXUS.txt` + `STATUS.md` ที่หอบังคับการ
+2. ถ้าปล่อยเวอร์ชันใหม่: อัปเดต `CHANGELOG.md` + `NEXUS.txt` + `STATUS.md` ที่หอบังคับการ (`../Bon-Dev-Hub`)
 3. commit + push **ทันที** (ห้ามค้างไว้ไม่ push)
 
 ## ทำงานหลาย agent — ห้ามพลาด
