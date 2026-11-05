@@ -9,10 +9,12 @@ update of the 2.1.0 file, with 2.1.0 archived (Vortex update notices work); the 
 content matches the repo byte for byte; the description is the new NEXUS.txt; the short
 description has been updated; requirement is UE4SS SN2 (min 3.0.1) only; the
 "v2.1.1 is out!" post is pinned; the reply to Fe1eNinamu24 is posted.
-**Still to do (Bon):** add the 2.1.1 changelog in the Logs tab (the page still shows
-2.1.0 as the latest log), and post reply [7a] to modsyouknow (only the 2026-11-04 holding
-reply is there). Then delete `drafts-2.1.1.txt`. The command center's `STATUS.md` is not
+Later the same day the 2.1.1 changelog was added in Logs (verified at the top) and the
+reply to modsyouknow was posted (verified). **All Nexus steps are done.**
+`drafts-2.1.1.txt` was deleted, as with 2.1.0. The command center's `STATUS.md` is not
 on this PC (only `Bon-Skill-Manager-Archived` exists), so it was not updated.
+Next up: once Mod Settings Lite has its own Nexus page, add it to RR's Requirements as
+optional. That is a text edit to NEXUS.txt; no new upload is needed.
 
 ## Earlier today: v2.1.1 ready, waiting for Bon to upload (2026-11-05)
 
