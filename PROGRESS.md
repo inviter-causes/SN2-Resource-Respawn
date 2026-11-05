@@ -27,6 +27,25 @@ Last updated: 2026-11-05
 
 ## Open items (no commitments)
 
+- **Scanner Station doesn't show respawned nodes** (Fe1eNinamu24, Nexus, 2026-11-05).
+  Cause found from the game's C++ headers (dumped 2026-11-05 to
+  `ue4ss/CXXHeaderDump/` in the game folder; `Subnautica2.hpp`, `UWEWorldPopulation2.hpp`):
+  `ASN2BaseScannerStation` fills its points from `ResourceBuffer:
+  TArray<FUWESeededResourceInfo>`, i.e. the game's **seed list** of original resource spots
+  (`UUWEWorldPop2BlueprintFunctionLibrary::GetAllResources…Filtered` with
+  `FUWEWorldPop2Query{IncludedClasses = filter's WorldPopResourcesToFind, OnlyActive}`), not
+  live actors. Once a spot is mined the game marks its seed GUID gathered in native,
+  non-reflected storage; our spawned node is a new actor that isn't tied to that seed, so the
+  spot stays "gathered" for the scanner. (Same reason v1's `newGuid` made re-streamed nodes
+  come back: the gathered mark is keyed by `ResourceId`.) Signals
+  (`SN2BaseScannerStationSignalsSubsystem`) are for wrecks/POIs, not resources.
+  **Untested fix idea:** snapshot the node's `ResourceId`, set it on the deferred spawn
+  before `FinishSpawningActor`, then `bHasBeenGathered = false` + `OnRep_HasBeenGathered()`
+  in case that broadcasts `OnResourceGathered(actor, false)` and clears the mark. Check with
+  `GetAllResourcesInRangeOfLocationFiltered(OnlyActive = true)` before/after, no station
+  needed. Risks: a node spawned with a gathered GUID may hide itself at BeginPlay, and if the
+  mark clears, the game may spawn its own copy on re-stream (duplicate).
+
 - **Co-op on two PCs: never tested.** 2.1.1 assumes a deposit the host spawns replicates
   to clients (the bug report suggests it does). If not, the fallback is the
   `ServerExecRPC` / `ClientMessage` pattern (see the PaintBrush mod). Waiting on player
