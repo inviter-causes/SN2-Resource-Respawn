@@ -34,7 +34,43 @@ Last updated: 2026-11-04
 - **Command center `STATUS.md`:** `../Bon-Skill-Manager` is not on this PC, so it is not
   updated. Do it at release time.
 
-## Open bug: Axum culture vanishes after respawning (SUB-4488)
+## Axum bug: FIXED and verified in game (SUB-4488, Done 2026-11-05)
+
+In-game test on 2026-11-05 (09:53-10:12, savegame_8). The agent drove the game itself via
+computer-use and granted the game by its exe path
+(`A:\SteamLibrary\...\Win64\Subnautica2-Win64-Shipping.exe`). The Axum is broken with the
+**Sonic Resonator** (hotbar slot 5): hold left mouse ~3s, release. The pause menu shows
+the player's coordinates.
+- **Test A, staying near:** harvested at 09:56:32. Spawned at 09:57:02, and `TRACE spawned
+  ... is in the engine's list`. Seen standing next scan, no re-queue.
+- **Test B, leaving range:** harvested at 10:07:47, then swam straight up to 242m (about 240m
+  above the cage). It came due at 10:09:47 and nothing fired while away. Back down, the
+  game streamed the cage in as a gathered husk (`gathered=true destroyed=false`). Two
+  scans later the mod restored it in place (10:11:07), the culture was visible, and it
+  broke normally again.
+- **The in-place restore works for Axum:** on every load the flagged cage was restored
+  (refill-on-load) and was full and harvestable. Hypothesis 2 (newGuid empties the cage)
+  is disproved.
+- **Mod-spawned cages do get flags:** harvesting a cage the mod spawned showed
+  `gathered=true destroyed=true` for ~20-30s before it went `gone`. The README note
+  "the game never sets bHasBeenGathered on nodes the mod spawns" is out of date, at least
+  for Axum.
+- The log had 0 errors; 3 spawns, all confirmed in the engine's list, 0 removed.
+- The game copy is back to normal: `./deploy.sh` restored config.lua (no TEST lines), and
+  the menu-saved `SN2ModSettings/saved/ResourceRespawn.lua` is at RespawnSeconds = 120.
+
+**New open item: streaming looks like harvesting.** While just swimming, the mod queued
+nodes nobody touched (titanium, clinker, a slug, celestine). They dropped out of
+FindAllOf while still within 150m (world streaming), and the absence check reads that as
+a harvest. Most were later `skipped — a node is already there` once the original was back
+in view. But one celestine fired with `husk in view: false` while near, so a duplicate
+can get stacked when the original streams back in. This is also a plausible part of the
+co-op "double resources" report. Fix idea: only count an absence as a harvest if the
+node was seen dying first (`destroyed`/`gathered` true on an earlier scan; harvested
+nodes linger ~20-30s like that), or if a player was within real harvest range (~50m) when
+it vanished. Apply the same rule to the `watched` backstop.
+
+## Earlier notes on the Axum bug (history)
 
 Fe1eNinamu24 reported this on Nexus at 2026-11-04 14:12. They harvest the culture, wait out
 the timer, and when they get close it's gone, in solo and in co-op alike. Axum is
