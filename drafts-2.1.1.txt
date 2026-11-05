@@ -19,9 +19,9 @@ ResourceRespawn 2.1.1 - ไฟล์เตรียมปล่อย (Bon ก�
 8. บอก agent: จะติด tag v2.1.1, ปิดการ์ด Trussel, อัปเดต PROGRESS และ STATUS.md
 
 
-[4] Brief overview
+[4] Short description (แทนของเดิมที่ลงท้ายว่า "with Mod Settings")
 ------------------
-Gathered resources come back where they stood, on a timer you choose. Deposits, loose pickups, water slugs, Troilite and even Axum Bacterial Culture. Easy to set up with UE4SS Mod Manager, works in co-op.
+Stop your mining spots running dry in Subnautica 2. Mined nodes, loose pickups, water slugs, Troilite and even Axum all respawn live, right where they stood. No save, no reload, and spots you emptied last session refill right after login. Works in co-op, easy to set up with UE4SS Mod Manager. ♥
 
 
 [5] Changelog 2.1.1
