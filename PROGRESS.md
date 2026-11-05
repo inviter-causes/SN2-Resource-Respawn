@@ -59,7 +59,20 @@ the player's coordinates.
 - The game copy is back to normal: `./deploy.sh` restored config.lua (no TEST lines), and
   the menu-saved `SN2ModSettings/saved/ResourceRespawn.lua` is at RespawnSeconds = 120.
 
-**New open item: streaming looks like harvesting.** While just swimming, the mod queued
+**FIXED in code (SUB-4507), not yet re-checked in game:** `wasHarvested(key, e)` is
+true only if the node was seen breaking (`dyingSeen[key]`: set in processNode when an
+enabled resource reads `destroyed` or `gathered` true; keyed from the cached position;
+kept for `DYING_TTL = 120s`), or a player is within `HARVEST_RANGE = 50m`. Both the
+snapshot check and the `watched` backstop use it. With Verbose on, a vanish that does
+not count logs `ignored X — gone without being harvested (streamed out)`. Tests: section
+17 (streamed out → no respawn, no duplicate; seen breaking at 100m → respawns).
+Sections 14-16 moved their nodes inside 50m. A mutation back to the old 150m rule fails
+section 17. 95 tests green. An in-game re-check was attempted on 2026-11-05, but the game
+stopped taking synthetic clicks on the save menu, so it is still to do: swim around with
+Verbose, expect `ignored ... streamed out` lines instead of false `queued`, and check a
+real harvest is still caught.
+
+Original note: **streaming looks like harvesting.** While just swimming, the mod queued
 nodes nobody touched (titanium, clinker, a slug, celestine). They dropped out of
 FindAllOf while still within 150m (world streaming), and the absence check reads that as
 a harvest. Most were later `skipped — a node is already there` once the original was back

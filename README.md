@@ -40,9 +40,12 @@ Three constraints shape the implementation, each learned the hard way:
 - **Never read a transform off a dying actor.** A harvested node reports its location as
   `(0,0,0)`, which once had the mod spawning deposits at the world origin, kilometres out
   to sea. Positions come from the snapshot taken while the node was standing.
-- **Detect the harvest by absence, not by a flag.** Nodes the mod spawns itself are not
-  registered with the game's world-population system, so the game never sets
-  `bHasBeenGathered` on them. Watching for the node to be *gone* works for both.
+- **A node going missing is not proof of a harvest.** The world streams actors out while
+  you are still well inside 150m. So a spot counts as harvested only if its node was
+  seen breaking (a harvested node lingers in the engine's list flagged
+  gathered/destroyed for a while before it goes), or if a player is within 50m of the
+  spot, close enough to have mined it. Otherwise it streamed out and is left alone.
+  Spawned replacements do get flagged when harvested (seen in the 2026-11-05 trace).
 
 One global respawn-time slider (5s–10min, default 120s) applies to every resource, plus a
 per-resource on/off toggle and a **Refill on load** toggle: spots emptied in an earlier

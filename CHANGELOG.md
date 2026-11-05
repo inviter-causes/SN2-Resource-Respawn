@@ -12,6 +12,10 @@
   respawns once you are back near it, and a refused respawn is retried instead of dropped
 - Fixed a rare case where a freshly respawned node was missed by the mod and a second
   copy got stacked on top of it
+- Fixed nodes you only swam past being treated as harvested. The game unloads parts of
+  the world even while you are close, and the mod used to count that as mining, which
+  could stack a duplicate node later. Now a spot counts as harvested only if the mod saw
+  the node break, or you were right next to it
 - Switching a resource off no longer makes the mod treat its standing nodes as
   harvested. Before, leaving it off long enough could stack a second node on each one
 - Easier to configure now that Mod Settings has left Nexus. Every setting in `config.lua`,

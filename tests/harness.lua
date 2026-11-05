@@ -653,26 +653,26 @@ section("14. respawn waits for a player; refused spawns are retried")
 
 quiesce()
 world.player = { X = 0, Y = 0, Z = 0 }
-local ax = addNode("BP_AxumBioprintCulture_Cage", 5500, 0, 0, false)
+local ax = addNode("BP_AxumBioprintCulture_Cage", 3100, 0, 0, false)
 tick()                                    -- seen standing
 removeNode(ax)                            -- harvested (the cage is destroyed)
 tick()                                    -- queued with the player right there
 world.player = { X = 5e7, Y = 0, Z = 0 }  -- swims far away
 CLOCK.t = CLOCK.t + 61                    -- timer runs out while away
 tick(3)
-check("nothing spawns while no player is near", spawnsAt(5500) == 0,
-      spawnsAt(5500) .. " spawns with nobody there")
+check("nothing spawns while no player is near", spawnsAt(3100) == 0,
+      spawnsAt(3100) .. " spawns with nobody there")
 world.player = { X = 0, Y = 0, Z = 0 }    -- comes back
 tick()
-check("not on the first scan back (area still streaming)", spawnsAt(5500) == 0,
-      spawnsAt(5500) .. " spawns on arrival")
+check("not on the first scan back (area still streaming)", spawnsAt(3100) == 0,
+      spawnsAt(3100) .. " spawns on arrival")
 tick()
-check("respawns once the player has settled in range", spawnsAt(5500) == 1,
-      spawnsAt(5500) .. " spawns after settling")
+check("respawns once the player has settled in range", spawnsAt(3100) == 1,
+      spawnsAt(3100) .. " spawns after settling")
 
 -- The engine refuses the spawn: retry, do not forget.
 quiesce()
-local ax2 = addNode("BP_AxumBioprintCulture_Cage", 5700, 0, 0, false)
+local ax2 = addNode("BP_AxumBioprintCulture_Cage", 3300, 0, 0, false)
 tick()
 removeNode(ax2)
 tick()
@@ -680,15 +680,15 @@ CLOCK.t = CLOCK.t + 61
 world.spawnInvalid = true
 reset()
 tick()
-check("a refused spawn is attempted", got("BeginSpawn") == 1 and spawnsAt(5700) == 0,
-      got("BeginSpawn") .. " attempts, " .. spawnsAt(5700) .. " finished")
+check("a refused spawn is attempted", got("BeginSpawn") == 1 and spawnsAt(3300) == 0,
+      got("BeginSpawn") .. " attempts, " .. spawnsAt(3300) .. " finished")
 world.spawnInvalid = false
 tick()
-check("no retry before the retry delay", spawnsAt(5700) == 0, spawnsAt(5700) .. " spawns")
+check("no retry before the retry delay", spawnsAt(3300) == 0, spawnsAt(3300) .. " spawns")
 CLOCK.t = CLOCK.t + 11
 tick()
-check("the spot is retried, not forgotten", spawnsAt(5700) == 1,
-      spawnsAt(5700) .. " spawns after the retry")
+check("the spot is retried, not forgotten", spawnsAt(3300) == 1,
+      spawnsAt(3300) .. " spawns after the retry")
 
 --------------------------------------------------------------------------------
 -- 15. A fresh node at a recycled address is not mistaken for a far-away one
@@ -702,7 +702,7 @@ section("15. recycled address + spawn trace")
 quiesce()
 cfgT.Trace = "axum"
 local far15 = addNode("BP_ResourceDeposit_Titanium", 9000000, 0, 0, false)
-local cage15 = addNode("BP_AxumBioprintCulture_Cage", 5900, 0, 0, false)
+local cage15 = addNode("BP_AxumBioprintCulture_Cage", 3500, 0, 0, false)
 tick()                                     -- both cached; the cage is seen standing
 removeNode(far15) removeNode(cage15)       -- far one streams out, cage harvested
 tick()                                     -- cage spot queued
@@ -716,11 +716,11 @@ check("trace confirms the spawned node is in the engine's list",
       logsMatching("is in the engine's list this scan") - inList0)
 CLOCK.t = CLOCK.t + 16
 tick(2)
-check("no second node stacked on a recycled address", spawnsAt(5900) == 1,
-      spawnsAt(5900) .. " spawns at the spot")
+check("no second node stacked on a recycled address", spawnsAt(3500) == 1,
+      spawnsAt(3500) .. " spawns at the spot")
 
 -- The other trace outcome: the engine removes the replacement before the next scan.
-local cage15b = addNode("BP_AxumBioprintCulture_Cage", 6100, 0, 0, false)
+local cage15b = addNode("BP_AxumBioprintCulture_Cage", 3700, 0, 0, false)
 tick()
 removeNode(cage15b)
 tick()
@@ -743,7 +743,7 @@ cfgT.Trace = ""
 section("16. switching a resource off is not a harvest")
 
 quiesce()
-local ti16 = addNode("BP_ResourceDeposit_Titanium", 6300, 0, 0, false)
+local ti16 = addNode("BP_ResourceDeposit_Titanium", 3900, 0, 0, false)
 tick()                                    -- seen standing, in the snapshot
 local function writeSavedRaw(body)
     local f = assert(realopen(SAVED_PATH, "w")) f:write(body) f:close()
@@ -753,8 +753,8 @@ CLOCK.t = CLOCK.t + 60                    -- settings TTL: the OFF is picked up
 tick(4)
 CLOCK.t = CLOCK.t + 60
 tick(4)
-check("no node stacked on a standing node of a switched-off resource", spawnsAt(6300) == 0,
-      spawnsAt(6300) .. " spawns while the node was still there")
+check("no node stacked on a standing node of a switched-off resource", spawnsAt(3900) == 0,
+      spawnsAt(3900) .. " spawns while the node was still there")
 check("the node itself is untouched", ti16.__alive == true, "node was destroyed")
 writeSaved(15)                            -- back on (Titanium = true)
 CLOCK.t = CLOCK.t + 60
@@ -763,8 +763,48 @@ removeNode(ti16)
 tick()
 CLOCK.t = CLOCK.t + 16
 tick(2)
-check("after switching it back on, a real harvest still respawns", spawnsAt(6300) == 1,
-      spawnsAt(6300) .. " spawns")
+check("after switching it back on, a real harvest still respawns", spawnsAt(3900) == 1,
+      spawnsAt(3900) .. " spawns")
+
+--------------------------------------------------------------------------------
+-- 17. A node that streams out is not a harvest
+--------------------------------------------------------------------------------
+-- 2026-11-05 in game: nodes dropped out of the engine's list while the player was still
+-- inside 150m, just because the area streamed out, and were queued as "harvested". One
+-- respawned while its original was still streamed out, a duplicate in waiting. A
+-- vanish now counts only if the node was seen breaking first, or a player is within
+-- harvest range (50m).
+section("17. streaming out is not a harvest")
+
+quiesce()
+-- 102m away: inside the 150m scan range, outside the 50m harvest range.
+local st17 = addNode("BP_ResourceDeposit_Celestine", 10200, 0, 0, false)
+writeSaved(15)
+CLOCK.t = CLOCK.t + 60
+tick()                                    -- seen standing
+removeNode(st17)                          -- streams out: no flags, just gone
+tick()
+CLOCK.t = CLOCK.t + 61
+tick(3)
+check("a node that streamed out is not respawned", spawnsAt(10200) == 0,
+      spawnsAt(10200) .. " spawns for a node nobody harvested")
+world.nodes[#world.nodes + 1] = st17      -- the original streams back in
+tick(2)
+check("so there is no duplicate when the original streams back", spawnsAt(10200) == 0,
+      spawnsAt(10200) .. " spawns")
+
+-- Same distance, but the node is seen breaking first: that is a harvest.
+local h17 = addNode("BP_ResourceDeposit_Celestine", 10600, 0, 0, false)
+tick()                                    -- seen standing
+h17.bActorIsBeingDestroyed = true         -- harvested: lingers flagged for a while
+h17.bHasBeenGathered = true
+tick()                                    -- seen breaking -> queued
+removeNode(h17)                           -- then the dying actor goes
+tick()
+CLOCK.t = CLOCK.t + 16
+tick(2)
+check("a node seen breaking still respawns, even 100m away", spawnsAt(10600) == 1,
+      spawnsAt(10600) .. " spawns")
 
 --------------------------------------------------------------------------------
 section("summary")

@@ -285,6 +285,15 @@ local REFILL_GRACE = 15   -- seconds
 -- many scans in a row (area streamed in and settled). See the pending loop.
 local SETTLE_SCANS = 2
 
+-- Harvest detection. A node seen breaking (flagged gathered/destroyed) is remembered for
+-- DYING_TTL seconds. A node that vanishes without that counts as harvested only when a
+-- player is within HARVEST_RANGE of it, i.e. close enough to have mined it. Anything else
+-- streamed out. 50m is generous next to the Sonic Resonator's ~10-15m reach.
+local HARVEST_RANGE = 5000                  -- 50m
+local HARVEST2      = HARVEST_RANGE * HARVEST_RANGE
+local DYING_TTL     = 120                   -- seconds
+local dyingSeen     = {}                    -- spot key -> time the node was seen breaking
+
 -- A spawn the engine refuses is retried, not forgotten.
 local SPAWN_RETRY_SECS = 10
 local SPAWN_RETRIES    = 6
@@ -648,7 +657,7 @@ local function tick()
     if isNetClient() then
         if not clientMode then
             clientMode = true
-            snapshot, pending, watched = {}, {}, {}
+            snapshot, pending, watched, dyingSeen = {}, {}, {}, {}
             log("joined a co-op game as a client: respawns are handled by the host's copy of the mod")
         end
         return
@@ -684,6 +693,15 @@ local function tick()
     local function isNear(x, y, z)
         local d2 = nearestD2(players, x, y, z)
         return d2 ~= nil and d2 <= NEAR2
+    end
+    -- See HARVEST_RANGE: seen breaking, or a player close enough to have mined it.
+    local function wasHarvested(key, e)
+        if dyingSeen[key] then return true end
+        local d2 = nearestD2(players, e.x, e.y, e.z)
+        return d2 ~= nil and d2 <= HARVEST2
+    end
+    for k, t in pairs(dyingSeen) do
+        if now - t > DYING_TTL then dyingSeen[k] = nil end
     end
 
     -- The world holds well over a thousand resource actors, and this runs on the game
@@ -767,6 +785,17 @@ local function tick()
                     state = string.format("gathered=%s destroyed=%s valid=%s",
                         tostring(gathered), tostring(destroyed), tostring(valid)),
                 }
+            end
+        end
+
+        -- Remember spots whose node is breaking: a harvested node stays in the engine's list
+        -- flagged gathered/destroyed for a while (20-30s for Axum in the 2026-11-05 trace)
+        -- before it goes. That is what tells a harvest apart from the area streaming out.
+        -- The key comes from the cached position: a dying actor can report (0,0,0).
+        if (destroyed == true or gathered == true) and plausible(at.x, at.y, at.z) then
+            local dn = className(a)
+            if dn ~= "" and matchSeconds(dn, s.active) then
+                dyingSeen[keyOf(dn, at.x, at.y, at.z)] = now
             end
         end
 
@@ -867,20 +896,24 @@ local function tick()
         end
     end
 
-    -- 2. A spot we were watching that no longer has a node standing on it has been
-    --    harvested. This is the whole detection: no flag to read, no actor to touch —
-    --    which is exactly why it also works for the nodes we spawned ourselves, since
-    --    the game never flags those as gathered.
+    -- 2. A spot we were watching that no longer has a node standing on it may have been
+    --    harvested. No actor is touched here, only what the scan recorded. Whether it
+    --    counts is decided by wasHarvested: seen breaking, or a player right there.
     local cooldown = s.active[1] and s.active[1].seconds or nil
     for key, e in pairs(snapshot) do
         -- A resource just switched OFF in the menu drops out of `standing` (the scan only
         -- counts enabled resources), so all its intact nodes would look "harvested" here.
         -- Not a harvest: skip anything that is no longer enabled.
         if not standing[key] and not pending[key] and matchSeconds(e.cn, s.active) then
-            -- It could also have vanished because the area streamed out. Only count it as
-            -- a harvest if the player is still standing next to the spot.
+            -- Vanishing alone is not proof of a harvest: the world streams actors out while
+            -- the player is still well inside 150m (seen on 2026-11-05: titanium, clinker,
+            -- a slug and celestine all "vanished" while the player just swam past). Counting
+            -- those queued respawns that could stack a duplicate on the original once it
+            -- streamed back. So it counts only if the node was seen breaking (harvested
+            -- nodes linger flagged/destroyed for a while), or a player is within real
+            -- harvest range of the spot right now.
             local secs = cooldown or 300
-            if isNear(e.x, e.y, e.z) then
+            if wasHarvested(key, e) then
                 pending[key] = {
                     cn = e.cn, clsPath = e.clsPath, static = e.static,
                     x = e.x, y = e.y, z = e.z,
@@ -892,6 +925,9 @@ local function tick()
                     log(string.format("queued %s at (%.0f, %.0f, %.0f) — back in %ss",
                         e.cn, e.x, e.y, e.z, tostring(secs)))
                 end
+            elseif cfg.Verbose and isNear(e.x, e.y, e.z) then
+                log(string.format("ignored %s at (%.0f, %.0f, %.0f) — gone without being harvested (streamed out)",
+                    e.cn, e.x, e.y, e.z))
             end
         end
     end
@@ -961,7 +997,10 @@ local function tick()
             -- has not finished re-streaming its actors, the spot would look "empty" and we
             -- would hand out a free resource node nobody harvested.
             watched[key] = nil
-        elseif not standing[key] and not flagged[key] and not pending[key] then
+        elseif not standing[key] and not flagged[key] and not pending[key]
+               and wasHarvested(key, e) then
+            -- Same rule as the snapshot check: an empty spot that merely streamed out is
+            -- not a harvest.
             do
                 local secs = matchSeconds(e.cn, s.active)
                 if secs then
