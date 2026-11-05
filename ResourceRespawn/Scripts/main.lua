@@ -792,10 +792,14 @@ local function tick()
         -- flagged gathered/destroyed for a while (20-30s for Axum in the 2026-11-05 trace)
         -- before it goes. That is what tells a harvest apart from the area streaming out.
         -- The key comes from the cached position: a dying actor can report (0,0,0).
+        -- Only a node that was standing on the previous scan counts: a husk handed back
+        -- already-gathered by a save load is not a fresh harvest. The 2026-11-05 re-check
+        -- caught exactly that: a load-restored Axum later streamed out and was counted.
         if (destroyed == true or gathered == true) and plausible(at.x, at.y, at.z) then
             local dn = className(a)
             if dn ~= "" and matchSeconds(dn, s.active) then
-                dyingSeen[keyOf(dn, at.x, at.y, at.z)] = now
+                local dk = keyOf(dn, at.x, at.y, at.z)
+                if snapshot[dk] then dyingSeen[dk] = now end
             end
         end
 
@@ -823,6 +827,7 @@ local function tick()
         if gathered ~= false then return end
 
         standing[key] = true
+        dyingSeen[key] = nil   -- intact again: an older "seen breaking" no longer applies
 
         local rot = try(rawRot, a)
         local cp  = classPath(a)

@@ -806,6 +806,26 @@ tick(2)
 check("a node seen breaking still respawns, even 100m away", spawnsAt(10600) == 1,
       spawnsAt(10600) .. " spawns")
 
+-- 2026-11-05 re-check in game: a husk handed back already gathered by a save load was
+-- remembered as "seen breaking"; restored in place, then streamed out later, it was
+-- counted as a harvest. Only a node seen standing first and then breaking counts.
+local load17 = addNode("BP_ResourceDeposit_Celestine", 11000, 0, 0, true)  -- gathered on load
+tick()                                    -- flagged husk (refill-on-load queues it)
+CLOCK.t = CLOCK.t + 16
+tick(2)                                   -- restored in place (no longer gathered)
+local before17 = spawnsAt(11000)
+tick()                                    -- seen standing intact
+-- A deposit's husk is replaced by a fresh node rather than un-flagged; whichever stands
+-- on the spot now is what streams out.
+for _, a in ipairs(world.nodes) do
+    if a.__alive and a.K2_GetActorLocation().X == 11000 then removeNode(a) break end
+end                                       -- streams out, 110m away
+tick()
+CLOCK.t = CLOCK.t + 61
+tick(3)
+check("a load-restored husk that later streams out is not re-harvested",
+      spawnsAt(11000) == before17, (spawnsAt(11000) - before17) .. " extra spawns")
+
 --------------------------------------------------------------------------------
 section("summary")
 realprint(string.format("  %d passed, %d failed", passes, failures))

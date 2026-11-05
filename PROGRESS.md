@@ -59,7 +59,21 @@ the player's coordinates.
 - The game copy is back to normal: `./deploy.sh` restored config.lua (no TEST lines), and
   the menu-saved `SN2ModSettings/saved/ResourceRespawn.lua` is at RespawnSeconds = 120.
 
-**FIXED in code (SUB-4507), not yet re-checked in game:** `wasHarvested(key, e)` is
+**FIXED and re-checked in game (SUB-4507, 2026-11-05).** Re-check 1 (10:31) caught a hole
+in the first version: a husk handed back already gathered by a save load was recorded as
+"seen breaking". It was restored in place, then streamed out within 120s while the
+player swam away, and got counted as a harvest. Fix: `dyingSeen` is only recorded when
+the spot was in `snapshot` (standing on the previous scan), and is cleared whenever the
+spot is seen standing again. Test: end of section 17 (it fails with both guards removed).
+Re-check 2 (10:38-10:40, fresh launch): the four streamed-out nodes logged `ignored ...
+streamed out`, the load-restored Axum streamed out without being queued, and there was
+no false `queued` at all. A real harvest after that could not be done, because the game
+stopped taking synthetic key/mouse input (tool switch, menus). It is covered by the 50m
+rule (real harvests happen within a few metres) and by section 17. 96 tests green.
+Computer-use tip for this game: hover before clicking (mouse_move near, then onto the
+button, then press). Instant clicks often don't register in the menus.
+
+Details of the first version: `wasHarvested(key, e)` is
 true only if the node was seen breaking (`dyingSeen[key]`: set in processNode when an
 enabled resource reads `destroyed` or `gathered` true; keyed from the cached position;
 kept for `DYING_TTL = 120s`), or a player is within `HARVEST_RANGE = 50m`. Both the
