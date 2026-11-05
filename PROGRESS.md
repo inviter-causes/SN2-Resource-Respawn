@@ -147,6 +147,22 @@ that won't break, and Axum disappears after respawning (solo and co-op).
 
 ## Traps
 
+- **Lab mod / scripted tests (2026-11-05):** `ue4ss/Mods/RRLab` (temporary) reads
+  `cmd.txt` once a second and runs each line in the game thread; output goes to `out.txt`.
+  Helper: `lab.sh "<cmd>"` in the session scratchpad. Notes:
+  - The CheatManagerEnabler gives a plain `CheatManager`. A hand-built `SN2CheatManager`
+    (StaticConstructObject) is never initialised: `LoadGame` silently does nothing, and
+    `ContinueGame` **crashed the game** (null read at 0x8, probably
+    `GameplayMessageSubsystem`). Don't use its cheats.
+  - To load a save from code, use the lobby game mode instead:
+    `FindFirstOf("UWELobbyGameMode"):LoadLocalGame(slot, alias, checkpoint)`
+    (`UWELobby.hpp`). Untested so far: it got queued while the PC was locked.
+  - **A locked PC stalls everything:** computer-use only sees a grey lock screen, and
+    `ExecuteInGameThread` work never runs (the game keeps using CPU but doesn't tick UE4SS
+    callbacks). Bon has to unlock the PC.
+  - **Don't call `open_application` on the game while it's running.** It starts a second
+    instance, which overwrites UE4SS.log and then exits.
+
 - **computer-use in SN2:** grant the game by exe path
   (`A:\SteamLibrary\...\Win64\Subnautica2-Win64-Shipping.exe`). Hover before clicking
   (mouse_move near, then onto the button, then press): instant clicks often don't
