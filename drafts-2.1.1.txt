@@ -1,0 +1,62 @@
+ResourceRespawn 2.1.1 - ไฟล์เตรียมปล่อย (Bon กดเองบน Nexus mods/420)
+ลบไฟล์นี้ได้เมื่อทุกขั้นตอนขึ้นหน้าเว็บจริงแล้ว (แบบเดียวกับ drafts-2.1.0.txt)
+=====================================================================
+
+ขั้นตอน (ทำตามลำดับ)
+--------------------
+1. แท็บ Files > Upload a file
+   - ไฟล์: ResourceRespawn-2.1.1.zip (อยู่ในโฟลเดอร์ repo นี้; ถ้าหายให้ agent รัน ./package.sh 2.1.1)
+   - File name: ResourceRespawn 2.1.1
+   - Version: 2.1.1
+   - Category: Main files
+   - ไฟล์ 2.1.0 ตัวเก่า: ย้ายไป Old files (ไม่ต้องลบ)
+2. หน้า Edit mod > Version: 2.1.1
+3. Description: ลบของเดิมทั้งหมด แล้ววางเนื้อหาไฟล์ NEXUS.txt ทั้งไฟล์ (BBCode)
+4. Brief overview (คำอธิบายสั้น): ถ้าของเดิมพูดถึง Mod Settings ให้เปลี่ยนเป็นข้อความด้านล่าง
+5. แท็บ Logs > Changelog: เพิ่มเวอร์ชัน 2.1.1 แล้ววางรายการด้านล่าง
+6. ปักหมุดคอมเมนต์ 2.1.1 (ข้อความด้านล่าง) และเลิกปักอันของ 2.1
+7. ตอบคอมเมนต์ modsyouknow และ Fe1eNinamu24 (ข้อความด้านล่าง)
+8. บอก agent: จะติด tag v2.1.1, ปิดการ์ด Trussel, อัปเดต PROGRESS และ STATUS.md
+
+
+[4] Brief overview
+------------------
+Gathered resources come back where they stood, on a timer you choose. Deposits, loose pickups, water slugs, Troilite and even Axum Bacterial Culture. Easy to set up with UE4SS Mod Manager, works in co-op.
+
+
+[5] Changelog 2.1.1
+-------------------
+- Fixed co-op: a second player no longer sees a duplicate node that can't be mined. Only the host's copy of the mod respawns resources now
+- In co-op the host also respawns spots near the other players
+- Fixed resources that never came back after you swam away, most noticeable with Axum Bacterial Culture. A spot now refills once you are back near it
+- Fixed three ways a duplicate node could get stacked on top of another: swimming past a spot while the game unloads that area, switching a resource off, and the mod briefly losing sight of a node it had just respawned
+- Easier to configure without Mod Settings: every setting in config.lua, including each resource toggle, can be edited with the Configure mod button in UE4SS Mod Manager
+- Your config.lua from 2.1 still works
+- New Enabled master switch in config.lua
+
+
+[6] Pinned comment
+------------------
+v2.1.1 is out!
+
+- Co-op fixed: no more ghost nodes that won't break. Only the host needs the mod now, and friends can have it installed too, it just stays idle on their side.
+- Resources that never came back after you swam away are fixed. This was most noticeable with Axum Bacterial Culture.
+- No more stacked duplicate nodes.
+- Mod Settings was removed from Nexus by its author, so the easiest way to change settings now is UE4SS Mod Manager (nexusmods.com/subnautica2/mods/34): click Configure mod next to ResourceRespawn. You can also edit Scripts/config.lua in Notepad; every setting has a short description above it.
+
+Thanks Fe1eNinamu24 and modsyouknow for the reports. Co-op feedback is very welcome!
+
+
+[7a] Reply to modsyouknow
+-------------------------
+Thanks for asking, and sorry for the wait! v2.1.1 is out and makes this much easier. Install UE4SS Mod Manager (nexusmods.com/subnautica2/mods/34) and click Configure mod next to ResourceRespawn: the respawn time, Refill on load and every resource toggle are all there, each with a short description. If you'd rather not install anything, open ue4ss\Mods\ResourceRespawn\Scripts\config.lua in Notepad, change the values and restart the game. Let me know if anything is unclear!
+
+
+[7b] Reply to Fe1eNinamu24 (ตอบใต้คอมเมนต์ Axum ล่าสุดของเขา ในเธรด co-op)
+--------------------------------------------------------------------------------
+Thanks again for both reports, they helped a lot! v2.1.1 is out and fixes both:
+
+- Co-op duplicates: only the host's copy of the mod respawns resources now, so the second player sees one real node instead of a ghost that won't break. Only the host needs the mod; if you both have it, the client's copy just stays idle.
+- Axum disappearing: when the timer ran out while nobody was near the spot, the game could refuse the respawn and the mod lost track of that spot for good. Now the spot refills as soon as you are back near it. I tested it in game by harvesting an Axum, swimming far away until the timer passed and coming back, and it was there and harvestable.
+
+If you see anything odd in co-op, please tell me. Your reports are the only co-op testing this mod gets!

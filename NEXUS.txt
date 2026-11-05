@@ -2,7 +2,7 @@
 
 [center][color=#FF4D6D][b]Mined a spot dry? Don't cry — give it a little love and it comes back. ♥[/b][/color][/center]
 
-[center][color=#FF4D6D][b]★ v2.1.1: co-op fixed (no more ghost nodes that won't break), and easy to configure without Mod Settings. ★[/b][/color][/center]
+[center][color=#FF4D6D][b]★ v2.1.1: co-op fixed, no more lost or doubled nodes, and easy to configure without Mod Settings. ★[/b][/color][/center]
 
 In Subnautica 2, loose pickups and wildlife slowly respawn on their own, but mined ore nodes are finite — the game wants you to farm those with a Metal Farm. [b]Resource Respawn[/b] gives every gathered resource a second life on a cooldown [b]you[/b] control, so your favourite spots never truly run dry. ♥
 
@@ -14,6 +14,7 @@ Everything is configurable from one small settings file, and [url=https://www.ne
 [*][b]The host also looks after spots near the other players[/b], not only the spots near the host.[/*]
 [*][b]Fixed: resources that never came back after you swam away.[/b] If the timer ran out while nobody was near, the game could refuse the respawn and the spot was lost for good. You'd notice it most with the rare Axum Bacterial Culture. Now the spot refills as soon as you are back near it. (Thanks Fe1eNinamu24 for the report!)[/*]
 [*][b]Easy to configure without Mod Settings.[/b] Mod Settings was removed from Nexus by its author. Every setting in [i]config.lua[/i], including each resource toggle, is now on its own line with a description, so the [b]Configure mod[/b] button in UE4SS Mod Manager can edit all of it. (Thanks modsyouknow for asking!)[/*]
+[*][b]No more stacked duplicate nodes.[/b] Three ways a second node could end up on top of the first are fixed: swimming past a spot while the game unloads that area, switching a resource off in the settings, and the mod briefly losing sight of a node it had just respawned.[/*]
 [*]Your old config.lua from 2.1 still works.[/*]
 [/list]
 

@@ -2,7 +2,20 @@
 
 Last updated: 2026-11-04
 
-## Current state: v2.1.1 built, NOT released (needs an in-game test first)
+## Current state: v2.1.1 ready, waiting for Bon to upload (2026-11-05)
+
+- **Release plan (Bon approved 2026-11-05):** ResourceRespawn 2.1.1 ships first, with no
+  settings-mod dependency (UE4SS Mod Manager covers easy config). The new settings menu
+  from the SN2-Mod-Settings session ships later as its own Nexus page, marked Beta, once
+  its 3 must-fix items are done. After that, RR's page lists it as an optional
+  requirement (a text-only edit, no new upload).
+- **Upload kit:** `drafts-2.1.1.txt` has the step list plus paste-ready English text:
+  brief overview, Nexus changelog, pinned comment, and replies to modsyouknow and
+  Fe1eNinamu24. `NEXUS.txt` is the full description. The zip was rebuilt from `b901598`+.
+  Delete the drafts file once everything is live (as done for 2.1.0).
+- **Verified:** in game on 2026-11-05 (Axum near/far, streaming ignored, load-restored
+  husk not re-harvested), plus 96 mock tests. Not verified: a real co-op session on two
+  PCs.
 
 - **Code:** v2.1.1 committed and pushed on `main`. **No tag yet.** Tag `v2.1.1` only once
   Bon has uploaded it.
