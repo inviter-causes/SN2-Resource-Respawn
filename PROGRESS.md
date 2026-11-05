@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-05
 
-## Current state: v2.1.1 LIVE on Nexus, nothing in flight
+## Current state: v2.1.1 LIVE on Nexus; scanner-station investigation done, v3 design awaiting Bon
 
 - **Released:** v2.1.1 on [Nexus mods/420](https://www.nexusmods.com/subnautica2/mods/420),
   2026-11-05 12:31. Tag `v2.1.1` pushed. Working tree clean.
@@ -49,20 +49,38 @@ Last updated: 2026-11-05
     `ResourceInstanceGatherStates: TMap<FGuid,uint8>`. The exe logs
     "Resource %s gathered with respawn time %f". This UE4SS build has Lua TMap/TSet types.
     `wpop.WPop2RespawnCooldownSeconds` is creatures only.
-  - **Test tooling found:** `USN2CheatManager` (CheatManagerEnablerMod is on) has
-    `LoadGame(Slot, Checkpoint)`, `ContinueGame()`, `SaveGame(Index)`, `Warp(X,Y,Z)`,
-    `FreeBuild`, `Give`, so an agent can load a save, teleport and build a station without
-    menu clicks. Only the harvest itself needs computer-use. `KismetSystemLibrary:QuitGame`
-    from Lua exits the game cleanly (used for the header dump).
-  - **Plan (2026-11-05, awaiting Bon's go):** temporary lab mod in the game folder driven by
-    a command file; work on a copy of savegame_8. Step 1 read-only: DAs and their respawn
-    times, subsystem map sizes and gather-state values, nearby actors' `ResourceId` vs the
-    seed list, the scanner-style query. Step 2: set one type's `TimeToRespawnSeconds` = 30
-    with RR off, harvest, watch the timers, see if the game respawns it (live? after
-    re-stream? after save/load? duplicates?). If native respawn works, RR v3 just sets the
-    respawn times (fixes scanner, saves and co-op at once). If not, keep spawning but give
-    the new node the seed `ResourceId` and reset its gather state, then test for duplicates.
-    Otherwise, document it as a limitation.
+  - **Lab results (2026-11-05, savegame_8, `tools/rrlab`):**
+    - Default `TimeToRespawnSeconds` is -1 (off) for almost every DA. The game already
+      sets it for DeepRootResource_Large (Troilite) 2700, WaterSlug 2700, LithiumLoose 600,
+      Lithium_ClamthuluPearl 600, FalseOysterRaion_Nodule 500.
+    - `ResourceInstanceGatherStates` has one entry per loaded resource instance (all
+      classes: ResourceNode, ResourceDeposit, WorldPopSpawned*, slugs), keyed by the actor's
+      `ResourceId`. Clusters of loose pieces share one id. 0 = standing, 1 = gathered.
+    - **Loose Quartz, real pickup** (`PickupActor`) with the DA at 30 s: gs 0→1,
+      `RespawnTimers[id]` counts 30→0, then gs→0 and the piece stands again **live**.
+    - **Quartz node broken by Bon** (real hit), DA at 30 s: gs→1 + 30 s timer, then gs→0,
+      but **no actor while the area stays loaded**. After going 3 km away and back, the node
+      was back at the same spot with the same id. The area unloads somewhere between 200
+      and 400 m away (not pinned down).
+    - So native = correct state (scanner, saves, co-op host) + respawn on area reload. RR
+      is still needed for the live respawn while the player stays nearby.
+    - Not yet checked: are native timers saved and resumed after save/load? Does a
+      scanner station show the spot again (gs 0 should be enough, but nobody has looked)?
+  - **Proposed RR v3 (awaiting Bon's go):**
+    1. Set `TimeToRespawnSeconds` = RespawnSeconds on the DAs of enabled resources; restore
+       the game's own values (remember them at startup) for disabled ones or when RR is off.
+    2. Harvest detection = gather state flipping to 1 (by `ResourceId`), replacing the
+       streaming heuristics (dyingSeen, 50 m rule). The due time = when the game's timer ends.
+    3. Live respawn: when the game resets gs to 0 and the spot is empty with a player within
+       150 m, spawn the node **with the original `ResourceId`** (so mining it goes through
+       the game's normal gather path). Remove RR's own nodes once every player is >200 m
+       away, so the game's re-stream copy never doubles up with ours.
+    4. Refill on load: spots with gs=1 and no timer get a short native timer.
+    5. Verify in a **Creative** save (Bon's request: no oxygen/hunger, FreeBuild for a
+       scanner station): live respawn, re-stream without duplicates, save/load, scanner by eye.
+  - Old test-tooling notes: the cheat manager the enabler creates in the lobby is a plain
+    `CheatManager`. In the world it's `BP_SN2CheatManager_C`, but `WorldPopRemove` did
+    nothing there. See tools/rrlab/README.md for the scripted boot and the known crashers.
 
 - **Co-op on two PCs: never tested.** 2.1.1 assumes a deposit the host spawns replicates
   to clients (the bug report suggests it does). If not, the fallback is the
@@ -155,8 +173,12 @@ that won't break, and Axum disappears after respawning (solo and co-op).
     `ContinueGame` **crashed the game** (null read at 0x8, probably
     `GameplayMessageSubsystem`). Don't use its cheats.
   - To load a save from code, use the lobby game mode instead:
-    `FindFirstOf("UWELobbyGameMode"):LoadLocalGame(slot, alias, checkpoint)`
-    (`UWELobby.hpp`). Untested so far: it got queued while the PC was locked.
+    `FindFirstOf("UWELobbyGameMode"):LoadLocalGame("savegame_8", "", "")` (works), then
+    `WBP_CharacterSelectScreen_C:DevSelectCharacterAndCloseScreen()` to get past the
+    Pioneer screen. `tools/rrlab/boot.sh` does both.
+  - After a crash, the next launch shows a Windows "game might not have exited correctly"
+    box. Synthetic clicks don't reach it, so Bon has to press OK, and the game then quits;
+    launch again.
   - **A locked PC stalls everything:** computer-use only sees a grey lock screen, and
     `ExecuteInGameThread` work never runs (the game keeps using CPU but doesn't tick UE4SS
     callbacks). Bon has to unlock the PC.
