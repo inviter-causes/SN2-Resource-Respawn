@@ -84,7 +84,7 @@ All settings live in [i]...\Subnautica2\Binaries\Win64\ue4ss\Mods\ResourceRespaw
 This little mod stands on the shoulders of the Subnautica 2 modding community:
 [list]
 [*][url=https://www.nexusmods.com/subnautica2/mods/269]SlugRespawn[/url] by Casper — the original water-slug respawn mod that inspired this one; Resource Respawn grows its idea to every gatherable resource.[/*]
-[*][url=https://www.nexusmods.com/subnautica2/mods/20]Mod Settings for Subnautica 2[/url] by JustChaldea — the in-game settings framework this mod registers its menu with.[/*]
+[*][b]Mod Settings for Subnautica 2[/b] by JustChaldea — the in-game settings framework this mod was built around (since removed from Nexus by its author).[/*]
 [*][url=https://www.nexusmods.com/subnautica2/mods/128]QuickStack[/url] — reference for the localization approach (detecting the game language and serving per-language text).[/*]
 [*][b]Fe1eNinamu24[/b] — for testing existing saves and co-op, confirming 1.1 support, suggesting Refill on load, and reporting back in detail. A lot of 2.0 and 2.1 exists because of that feedback. ♥[/*]
 [/list]
