@@ -28,6 +28,8 @@ Last updated: 2026-11-05
 ## Open items (no commitments)
 
 - **Scanner Station doesn't show respawned nodes** (Fe1eNinamu24, Nexus, 2026-11-05).
+  Bon replied 2026-11-05 15:33 (explained the cause, promised to try a fix, "no promises
+  yet, I'll post here if it works"). Post the outcome under that comment either way.
   Cause found from the game's C++ headers (dumped 2026-11-05 to
   `ue4ss/CXXHeaderDump/` in the game folder; `Subnautica2.hpp`, `UWEWorldPopulation2.hpp`):
   `ASN2BaseScannerStation` fills its points from `ResourceBuffer:
