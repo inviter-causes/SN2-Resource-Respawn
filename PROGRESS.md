@@ -15,7 +15,7 @@ Last updated: 2026-11-05
   the page; no new upload is needed for text-only changes.
 - **Mod Settings Lite** (Bon's clean-room SN2ModSettings replacement, repo
   `D:\Personal\SN2-Mod-Settings`, private) went live 2026-11-05 at
-  [mods/523](https://www.nexusmods.com/subnautica2/mods/523), v0.3.0 Beta. RR works with it
+  [mods/523](https://www.nexusmods.com/subnautica2/mods/523), now v0.3.1 (2026-11-11). RR works with it
   unchanged: its compat folder `ue4ss/Mods/SN2ModSettings/enabled.txt` triggers
   `writeRegistration`. Its own repo and session own its progress.
 - **Command center:** `../Bon-Dev-Hub` (formerly Bon-Skill-Manager). Its STATUS.md has the
@@ -27,7 +27,7 @@ Last updated: 2026-11-05
 
 ## Open items (no commitments)
 
-- **Crash 2026-11-11 08:04 is a Mod Settings Lite bug, not an RR bug.** What happened:
+- **Crash 2026-11-11 08:04 was a Mod Settings Lite bug, not an RR bug. FIXED in Lite 0.3.1** (live on Nexus 2026-11-11, Bon tested in game). What happened:
   lobby Settings (OK) → load world → Settings (OK) → Quit to main menu → open Settings
   → `EXCEPTION_ACCESS_VIOLATION` ~1s later. The stack is nested UE4SS Lua inside a
   script hook (`WBP_Settings2Screen_C:BP_OnActivated`, Lite's `entry.lua`). Cause: Lite's
