@@ -27,6 +27,18 @@ Last updated: 2026-11-05
 
 ## Open items (no commitments)
 
+- **Crash 2026-11-11 08:04 is a Mod Settings Lite bug, not an RR bug.** What happened:
+  lobby Settings (OK) → load world → Settings (OK) → Quit to main menu → open Settings
+  → `EXCEPTION_ACCESS_VIOLATION` ~1s later. The stack is nested UE4SS Lua inside a
+  script hook (`WBP_Settings2Screen_C:BP_OnActivated`, Lite's `entry.lua`). Cause: Lite's
+  `Tab:attach` keeps widgets from the previous open (`self.view.root`, `self.button`,
+  `self.tabs`...) and calls `self.view:close()` → `RemoveFromParent` on the old page,
+  which was freed with the old world. `pcall` can't catch an AV. Fix belongs in
+  `../SN2-Mod-Settings` (drop every cached widget when the Settings screen's address or
+  the world changes; never call methods on objects from a previous open). Crash folder:
+  `%LOCALAPPDATA%\Subnautica2\Saved\Crashes\UECC-Windows-61E2…_0000`.
+  `ue4ss/Mods/RRLab` is still in the game folder but has no `enabled.txt` (inactive).
+
 - **Scanner Station doesn't show respawned nodes** (Fe1eNinamu24, Nexus, 2026-11-05).
   Bon replied 2026-11-05 15:33 (explained the cause, promised to try a fix, "no promises
   yet, I'll post here if it works"). Post the outcome under that comment either way.
