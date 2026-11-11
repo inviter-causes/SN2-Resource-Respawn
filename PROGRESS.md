@@ -14,7 +14,7 @@ Last updated: 2026-11-05
 - **`NEXUS.txt` mirrors the live description again.** If you edit it, Bon pastes it onto
   the page; no new upload is needed for text-only changes.
 - **Mod Settings Lite** (Bon's clean-room SN2ModSettings replacement, repo
-  `D:\Personal\SN2-Mod-Settings`, private) went live 2026-11-05 at
+  `C:\Users\Bon\Dev\Personal\SN2-Mod-Settings`, private) went live 2026-11-05 at
   [mods/523](https://www.nexusmods.com/subnautica2/mods/523), now v0.3.1 (2026-11-11). RR works with it
   unchanged: its compat folder `ue4ss/Mods/SN2ModSettings/enabled.txt` triggers
   `writeRegistration`. Its own repo and session own its progress.
