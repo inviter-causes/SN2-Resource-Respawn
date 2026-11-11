@@ -37,7 +37,8 @@ Last updated: 2026-11-05
   `../SN2-Mod-Settings` (drop every cached widget when the Settings screen's address or
   the world changes; never call methods on objects from a previous open). Crash folder:
   `%LOCALAPPDATA%\Subnautica2\Saved\Crashes\UECC-Windows-61E2…_0000`.
-  `ue4ss/Mods/RRLab` is still in the game folder but has no `enabled.txt` (inactive).
+  `ue4ss/Mods/RRLab` was removed from the game folder 2026-11-11 (Bon's call); reinstall
+  from `tools/rrlab` if v3 testing needs it.
 
 - **Scanner Station doesn't show respawned nodes** (Fe1eNinamu24, Nexus, 2026-11-05).
   Bon replied 2026-11-05 15:33 (explained the cause, promised to try a fix, "no promises
